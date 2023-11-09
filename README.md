@@ -27,3 +27,4 @@ pip3 install -r requirements.txt
 python3 artspew.py <desired image count> <desired quality from 1 to 20>
 ```
 The new images with appear in the directory named **spew/**.  The images are creatively named spew-X-Y.jpg where X is the quality value(number of steps) and Y is a sequence number.
+![image](https://github.com/aifartist/ArtSpew/assets/116415616/f80a5cd9-994f-4134-8e05-f735116bce53)
