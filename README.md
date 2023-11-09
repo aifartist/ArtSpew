@@ -10,8 +10,8 @@ As it was in the beginning, quality will improve over time.
 ### Setup Instructions - Linux centric
 ```
 # Get the code
-git clone https://github.com/aifartist/sdzoom
-cd sdzoom
+git clone https://github.com/aifartist/ArtSpew
+cd ArtSpew
 
 # Create a virtual environment in the current directory
 python3 -m venv ./venv
