@@ -91,7 +91,7 @@ def genit(nImage, nSteps):
                         n = random.randint(0, 768-1)
                         pe[0][m][n] = 64 * numpy.random.random() - 32
                 else:
-                    r = torch.normal(mean=0, std=5., size=(1024,))
+                    r = torch.normal(mean=0, std=4., size=(4096,))
                     for x in r:
                         m = random.randint(0, 77-1)
                         n = random.randint(0, 768-1)
