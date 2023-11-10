@@ -24,9 +24,10 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 ### How to spew art with no discernible talent.  :-)
+Just updated to use sdxl
 ```
-python3 artspew.py <required: desired image count> <optional: desired quality from 1 to 20.  Default 4>
+python3 spewxl.py <required: desired image count> <optional: desired quality from 1 to 20.  Default 10>
 ```
-The new images with appear in the directory named **spew/**.  The images are creatively named spew-X-Y.jpg where X is the quality value(number of steps) and Y is a sequence number.  Currently images will be overwritten for a given quality setting.  I'll fix this later.  So save you good images.  Perhaps 30% of the images are total noise. Even at quality=4 there'll be some good ones.  The idea is to see the space of possibilities and generate ideas.  Set quality to 12 or 16 and you'll get more good images.  It is a complex process to figure out the ideal internal settings to optimize the percentage of good images.  I'm working on this but try to generate 100 images at quality 12 and look at the variety.  Imagine using one of the better sd1.5 models with this.  I'll do that soon.  Also, I know exactly how to substantial speed this up.  This is only the beginning...
+The new images with appear in the directory named **spewxl/**.  The images are creatively named spew-X-Y.jpg where y is the quality value(number of steps) and X is a sequence number.  Even at quality=4 there'll be some good ones.  The idea is to see the space of possibilities and generate ideas.  Set quality to 12 or 16 and you'll get even more good images.  It is a complex process to figure out the ideal internal settings to optimize the percentage of good images.  I'm working on this but try to generate 100 images at quality 12 and look at the variety.  Imagine using one of the better sd1.5 models with this.  I'll do that soon.  Also, I know exactly how to substantial speed this up.  This is only the beginning...
 
 ![image](https://github.com/aifartist/ArtSpew/assets/116415616/f80a5cd9-994f-4134-8e05-f735116bce53)
