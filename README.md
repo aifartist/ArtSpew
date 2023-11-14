@@ -4,9 +4,8 @@ An infinite number of monkeys randomly throwing paint at a canvas
 ### Explore the diversity of Stable Diffusion through random prompt embeddings.
 Using randomly generated embeddings this app can generate a huge diverse set of images very rapidly.  I've created 1000 images in 133 seconds and haven't even begun to optimize.  With 4 step LCM images I should be able to get to 60 seconds and with batching and torch.compile() under 40 seconds FOR 1000 IMAGES on a 4090.
 
+Tongue in cheek:
 In ancient granite Wikipedia carvings dated near the end of August 2022 Stable Diffusion was inscribed and human artists were no more. They were replaced by AI Artists typing words, getting the spelling right 2 out of 3 times and usually finding the "Generate" button.  Now, eons later, we are at a point where AI Artists will soon be replaced.  The dawn of ArtSpew is at hand.  Harnessing the magic of a random number generator you can excrete 1000 random images very quickly.
-
-As it was in the beginning, quality will improve over time.
 
 ### Setup Instructions - Linux centric
 ```
@@ -24,10 +23,22 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 ### How to spew art with no discernible talent.  :-)
-Just updated to use sdxl
+Try the following for a first run:
 ```
-python3 spewxl.py <required: desired image count> <optional: desired quality from 1 to 20.  Default 10>
+python3 sdxl.py -l -t -c 8 -b 2 -n 5 -s 12
 ```
-The new images with appear in the directory named **spewxl/**.  The images are creatively named spew-X-Y.jpg where y is the quality value(number of steps) and X is a sequence number.  Even at quality=4 there'll be some good ones.  The idea is to see the space of possibilities and generate ideas.  Set quality to 12 or 16 and you'll get even more good images.  It is a complex process to figure out the ideal internal settings to optimize the percentage of good images.  I'm working on this but try to generate 100 images at quality 12 and look at the variety.  Imagine using one of the better sd1.5 models with this.  I'll do that soon.  Also, I know exactly how to substantial speed this up.  This is only the beginning...
+l: use lcm
+t: use tiny vae
+c: count of batches
+b: batch size
+n: number of random tokens to use
+s: Number of inference steps
+
+Use:  python3 sdxl.py -h
+to get the full usage.
+
+The new images with appear in the directory named **spew/**.  Even at nSteps=4 there'll be some good ones.  The idea is to see the space of possibilities and generate ideas.  Set nSteps to 12 or 16 and you'll get better images.  Then perhaps set "-c" to 100 and look at the diversity of images you get.
+
+Also, I know exactly how to substantial speed this up.  This is only the beginning...
 
 ![image](https://github.com/aifartist/ArtSpew/assets/116415616/f80a5cd9-994f-4134-8e05-f735116bce53)

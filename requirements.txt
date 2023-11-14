@@ -19,3 +19,4 @@ safetensors
 transformers
 regex
 accelerate
+omegaconf
