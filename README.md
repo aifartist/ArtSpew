@@ -26,13 +26,14 @@ pip3 install -r requirements.txt
 Try the following for a first run:
 ```
 python3 sdxl.py -l -t -c 8 -b 2 -n 5 -s 12
-```
+
 l: use lcm
 t: use tiny vae
 c: count of batches
 b: batch size
 n: number of random tokens to use
 s: Number of inference steps
+```
 
 Use:  python3 sdxl.py -h
 to get the full usage.
