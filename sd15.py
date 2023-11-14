@@ -161,17 +161,21 @@ if __name__ == "__main__":
                         help='Use LCM')
     parser.add_argument('-t', '--tiny-vae', action='store_true',
                         help='Use the tiny VAE')
-    parser.add_argument('-g', '--guidance', type=float, default=8.,
+    parser.add_argument('-g', '--guidance', type=float, default=-1.,
                         help='Guidance value')
 
     args = parser.parse_args()
 
     if args.lcm:
        if args.nSteps == -1:
-           args.nSteps = 8
+           args.nSteps = 8.
+       if args.guidance == -1:
+           args.guidance = 0.
     else:
        if args.nSteps == -1:
            args.nSteps = 20
+       if args.guidance == -1:
+           args.guidance = 8.
 
     prompt = args.prompt
     guidance = args.guidance
@@ -187,8 +191,9 @@ if __name__ == "__main__":
             args.model_id,
             torch_dtype=torch.float16,
             variant="fp16",
-            safety_checker=None,
-            requires_safety_checker=False)
+            load_safety_checker=False,)
+            #safety_checker=None,
+            #requires_safety_checker=False)
     else:
         pipe = StableDiffusionPipeline.from_pretrained(
             args.model_id,

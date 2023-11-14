@@ -186,14 +186,14 @@ if __name__ == "__main__":
 
     if args.lcm:
        if args.nSteps == -1:
-           args.nSteps = 8
-       # This would be for SDXL LCM
+           args.nSteps = 8.
        if args.guidance == -1:
            args.guidance = 0.
     else:
-       args.guidance = 8.
        if args.nSteps == -1:
            args.nSteps = 20
+       if args.guidance == -1:
+           args.guidance = 8.
 
     prompt = args.prompt
     guidance = args.guidance
@@ -205,7 +205,9 @@ if __name__ == "__main__":
     tiny = args.tiny_vae
 
     if args.model_id.endswith('.safetensors') or args.model_id.endswith('.ckpt'):
-        pipe = AutoPipelineForText2Image.from_single_file(
+        from diffusers import StableDiffusionXLPipeline
+        #pipe = AutoPipelineForText2Image.from_single_file(
+        pipe = StableDiffusionXLPipeline.from_single_file(
             args.model_id,
             torch_dtype=torch.float16,
             variant="fp16",
