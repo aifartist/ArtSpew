@@ -12,14 +12,13 @@ from diffusers import AutoPipelineForText2Image
 from diffusers import EulerAncestralDiscreteScheduler
 from diffusers import LCMScheduler
 
-doCompile = False
 lastSeqno = -1
 
 torch.set_grad_enabled(False)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
-#torch.backends.cudnn.benchmark = True
-#torch.backends.cudnn.benchmark_limit = 0
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark_limit = 0
 
 def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     if nTokens < 0 or nTokens > 75:
@@ -46,6 +45,9 @@ def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     # pl is prompt length in terms of user tokens
     # Find the end marker
     pl = np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
+    if pl + nTokens > 75:
+        raise BaseException("Number of user prompt tokens and random tokens must be <= 75")
+
     text_input_ids = text_inputs.input_ids
 
     tii = text_inputs.input_ids
@@ -78,7 +80,6 @@ def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
 
     prompt_embeds = text_encoder(text_input_ids.to('cuda'), attention_mask=None)
     prompt_embeds = prompt_embeds[0]
-
     prompt_embeds = prompt_embeds.to(dtype=pipe.unet.dtype, device='cuda')
 
     bs_embed, seq_len, _ = prompt_embeds.shape
@@ -86,28 +87,30 @@ def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     prompt_embeds = prompt_embeds.repeat(1, 1, 1)
     prompt_embeds = prompt_embeds.view(bs_embed * 1, seq_len, -1)
 
-    bs_embed, seq_len, _ = prompt_embeds.shape
-
     # text_encoder 1
     # DW: len(prompt_enbeds.hidden_states) = 13
     # DW: len(prompt_enbeds.hidden_states[-2].shape = torch.Size([3, 77, 768])
 
     return prompt_embeds
 
-def warmup(pipe, prompt):
+def warmup(pipe, prompt, guidance):
     # Warmup
     print('\nStarting warmup generation of two images.')
     print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
-    print('Obviously there is no reason to use compile unless you are going to generation hundreds of images')
+    print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
     with torch.inference_mode():
+        pe, ppe = dwencode(pipe, prompt, batchSize, nSteps)
         img = pipe(
-            prompt = 'The cat in the hat is fat',
+            prompt_embeds = pe,
+            pooled_prompt_embeds = ppe,
             width=512, height=512,
             num_inference_steps=8,
             guidance_scale=0, lcm_origin_steps=50,
             output_type="pil", return_dict=False)
+        pe, ppe = dwencode(pipe, prompt, batchSize, nSteps)
         img = pipe(
-            prompt = 'The cat in the hat is fat',
+            prompt_embeds = pe,
+            pooled_prompt_embeds = ppe,
             width=512, height=512,
             num_inference_steps=8,
             guidance_scale=0, lcm_origin_steps=50,
@@ -163,6 +166,8 @@ if __name__ == "__main__":
                         help='Use the tiny VAE')
     parser.add_argument('-g', '--guidance', type=float, default=-1.,
                         help='Guidance value')
+    parser.add_argument('-z', '--torch-compile', action='store_true',
+                        help='Using torch.compile for faster inference')
 
     args = parser.parse_args()
 
@@ -185,6 +190,7 @@ if __name__ == "__main__":
     nSteps = args.nSteps
     lcm = args.lcm
     tiny = args.tiny_vae
+    doCompile = args.torch_compile
 
     if args.model_id.endswith('.safetensors') or args.model_id.endswith('.ckpt'):
         pipe = StableDiffusionPipeline.from_single_file(
@@ -223,11 +229,11 @@ if __name__ == "__main__":
 
     if doCompile:
         pipe.text_encoder = torch.compile(pipe.text_encoder, mode='max-autotune')
-        pipe.tokenizer = torch.compile(pipe.tokenizer, mode='max-autotune')
+        #pipe.tokenizer = torch.compile(pipe.tokenizer, mode='max-autotune')
         pipe.unet = torch.compile(pipe.unet, mode='max-autotune')
         pipe.vae = torch.compile(pipe.vae, mode='max-autotune')
 
-        warmup(pipe, 'The cat in the hat is fat')
+        warmup(pipe, 'The cat in the hat is fat', guidance)
 
     print(f"\nprompt = {prompt}")
     print(f"guidance = {guidance}")
@@ -235,6 +241,9 @@ if __name__ == "__main__":
     print(f"Batch Size = {batchSize}")
     print(f"Number of added random tokens = {nTokens}")
     print(f"Number of inference steps = {nSteps}")
+
+    if not os.path.exists('spew'):
+        os.makedirs('spew')
 
     fNamePrefix = f"sd15-"
     # Use os.scandir() to efficiently list and filter files

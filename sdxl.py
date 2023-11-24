@@ -7,19 +7,18 @@ from subprocess import check_output
 import torch
 import numpy as np
 
-#from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionXLPipeline
 from diffusers import AutoPipelineForText2Image
 from diffusers import EulerAncestralDiscreteScheduler
 from diffusers import LCMScheduler
 
-doCompile = False
 lastSeqno = -1
 
 torch.set_grad_enabled(False)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
-#torch.backends.cudnn.benchmark = True
-#torch.backends.cudnn.benchmark_limit = 0
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark_limit = 0
 
 def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     if nTokens < 0 or nTokens > 75:
@@ -53,7 +52,6 @@ def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
         # pl is prompt length in terms of user tokens
         # Find the end marker
         pl = np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
-
         if pl + nTokens > 75:
             raise BaseException("Number of user prompt tokens and random tokens must be <= 75")
 
@@ -106,12 +104,11 @@ def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
 def warmup(pipe, prompt, guidance):
     # Warmup
     print('\nStarting warmup generation of two images.')
-    print('If using compile() and this is the first run it will add a number of minutes of extra time before it start generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run')
-    print('    this can take an extra 35 seconds each time.')
+    print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
+    print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
     with torch.inference_mode():
         pe, ppe = dwencode(pipe, prompt, batchSize, nSteps)
         img = pipe(
-            prompt = prompt,
             width=1024, height=1024,
             prompt_embeds = pe,
             pooled_prompt_embeds = ppe,
@@ -181,6 +178,8 @@ if __name__ == "__main__":
                         help='Use the tiny VAE')
     parser.add_argument('-g', '--guidance', type=float, default=-1.,
                         help='Guidance value')
+    parser.add_argument('-z', '--torch-compile', action='store_true',
+                        help='Using torch.compile for faster inference')
 
     args = parser.parse_args()
 
@@ -203,10 +202,9 @@ if __name__ == "__main__":
     nSteps = args.nSteps
     lcm = args.lcm
     tiny = args.tiny_vae
+    doCompile = args.torch_compile
 
     if args.model_id.endswith('.safetensors') or args.model_id.endswith('.ckpt'):
-        from diffusers import StableDiffusionXLPipeline
-        #pipe = AutoPipelineForText2Image.from_single_file(
         pipe = StableDiffusionXLPipeline.from_single_file(
             args.model_id,
             torch_dtype=torch.float16,
