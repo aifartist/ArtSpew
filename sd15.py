@@ -149,7 +149,7 @@ if __name__ == "__main__":
     # Define an option with a value
     parser.add_argument('-m', '--model_id', type=str, default='runwayml/stable-diffusion-v1-5',
                         help='Specify the input file')
-    parser.add_argument('-p', '--prompt', type=str,
+    parser.add_argument('-p', '--prompt', type=str, default='',
                         help='Specify the input file')
     parser.add_argument('-c', '--batch-count', type=int, default=1,
                         help='Number of batches to do')
