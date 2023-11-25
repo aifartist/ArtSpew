@@ -6,6 +6,17 @@ import torch
 import numpy as np
 from diffusers import AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, LCMScheduler, StableDiffusionPipeline, StableDiffusionXLPipeline
 
+MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
+MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
+DEFAULT_WIDTH_SD15 = 512
+DEFAULT_WIDTH_SDXL = 1024
+DEFAULT_HEIGHT_SD15 = 512
+DEFAULT_HEIGHT_SDXL = 1024
+DEFAULT_LCM_STEPS = 8.
+DEFAULT_INFER_STEPS = 20
+DEFAULT_GUIDANCE_SD15 = 8.
+DEFAULT_GUIDANCE_LCM = 0.
+
 
 class StableDiffusionBase:
     def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance, torch_compile):
@@ -103,88 +114,87 @@ class StableDiffusionBase:
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     def dwencode(self, prompt, batch_size, n_tokens):
-        pipe = self.pipe
-
-        if prompt == None:
+        if prompt is None:
             prompt = ''
 
-        if n_tokens < 0 or n_tokens > 75:
-            raise BaseException("n random tokens must be between 0 and 75")
+        if not 0 <= n_tokens <= 75:
+            raise ValueError("n random tokens must be between 0 and 75")
 
-        prompt = batch_size * [ prompt ]
-
+        prompt = [prompt] * batch_size  # Replicate the prompt for the batch
         tokenizers = self.get_tokenizers()
         text_encoders = self.get_text_encoders()
 
-        if n_tokens > 0:
-            randIIs = torch.zeros((batch_size, n_tokens), dtype=torch.int32)
-            for bIdx in range(batch_size):
-                randIIs[bIdx] = torch.randint(low=0, high=49405, size=(n_tokens,))
+        # Generate random tokens if needed
+        randIIs = self.generate_random_tokens(batch_size, n_tokens) if n_tokens > 0 else None
 
-        # Each prompt is a batch size of the prompts.  However,
-        # in the below "prompts" are to deal with the two
-        # tokenizers and encoders.  Confused?
-        #prompts = [prompt, ["Women on spaceship", "Gorilla on building", "Children swimming", "Chicken riding a donkey"]]
         prompt_embeds_list = []
         for tokenizer, text_encoder in zip(tokenizers, text_encoders):
-            text_inputs = tokenizer(
-                prompt,
-                padding = "max_length",
-                max_length = tokenizer.model_max_length,
-                truncation = True,
-                return_tensors="pt",
-            )
+            text_inputs = self.tokenize_prompt(tokenizer, prompt)
+            prompt_length = self.find_prompt_length(text_inputs)
 
-            # pl is prompt length in terms of user tokens
-            # Find the end marker
-            pl = np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
-            if pl + n_tokens > 75:
-                raise BaseException("Number of user prompt tokens and random tokens must be <= 75")
-
-            text_input_ids = text_inputs.input_ids
-
+            # Append random tokens to the user prompt if needed
             if n_tokens > 0:
-                tii = text_inputs.input_ids
-                # This appends nToken random tokens to the user prompt
-                for i in range(batch_size):
-                    tii[i][1+pl:1+pl+n_tokens] = randIIs[i]
-                    tii[i][1+pl+n_tokens] = 49407
-                text_input_ids = tii
+                text_inputs.input_ids = self.append_random_tokens(text_inputs.input_ids, randIIs, prompt_length, n_tokens)
 
-            prompt_embeds = text_encoder(text_input_ids.to('cuda'), output_hidden_states=True)
-
-            # We are only ALWAYS interested in the pooled output of the final text encoder
-            pooled_prompt_embeds = prompt_embeds[0]
-            clip_skip = None
-            if clip_skip is None:
-                prompt_embeds = prompt_embeds.hidden_states[-2]
-            else:
-                # "2" because SDXL always indexes from the penultimate layer.
-                prompt_embeds = prompt_embeds.hidden_states[-(clip_skip + 2)]
-
+            prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
+            # Print each prompt for debugging
+            self.print_encoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_tokens, tokenizer)
+
+        # Concatenate and prepare embeddings for the model
+        return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
+
+    def generate_random_tokens(self, batch_size, n_tokens):
+        return torch.randint(low=0, high=49405, size=(batch_size, n_tokens), dtype=torch.int32)
+
+    def tokenize_prompt(self, tokenizer, prompt):
+        return tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+    def find_prompt_length(self, text_inputs):
+        return np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
+
+    def append_random_tokens(self, input_ids, random_tokens, prompt_length, n_tokens):
+        if prompt_length + n_tokens > 75:
+            raise ValueError("Number of user prompt tokens and random tokens must be <= 75")
+        for i in range(len(input_ids)):
+            input_ids[i][1+prompt_length:1+prompt_length+n_tokens] = random_tokens[i]
+            input_ids[i][1+prompt_length+n_tokens] = 49407
+        return input_ids
+
+    def encode_text(self, text_encoder, text_input_ids):
+        prompt_embeds = text_encoder(text_input_ids.to('cuda'), output_hidden_states=True)
+        pooled_prompt_embeds = prompt_embeds[0]
+        prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
+        return prompt_embeds, pooled_prompt_embeds
+
+    def print_encoded_prompts(self, text_input_ids, batch_size, prompt_length, n_tokens, tokenizer):
         seqno = self.last_sequence_number + 1
         for bi in range(batch_size):
             print(f"{seqno:09d}-{bi:02d}: ", end='')
-            for tid in text_input_ids[bi][1:1+pl+n_tokens]:
+            for tid in text_input_ids[bi][1:1+prompt_length+n_tokens]:
                 print(f"{tokenizer.decode(tid)} ", end='')
             print('')
 
+    def prepare_embeddings_for_model(self, prompt_embeds_list, pooled_prompt_embeds):
         prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
-        prompt_embeds = prompt_embeds.to(dtype=pipe.unet.dtype, device='cuda')
-
+        prompt_embeds = prompt_embeds.to(dtype=self.pipe.unet.dtype, device='cuda')
         bs_embed, seq_len, _ = prompt_embeds.shape
-        # duplicate text embeddings for each generation per prompt, using mps friendly method
-        prompt_embeds = prompt_embeds.repeat(1, 1, 1)
-        prompt_embeds = prompt_embeds.view(bs_embed * 1, seq_len, -1)
-        if len(tokenizers) > 1:
-            pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, 1).view(bs_embed * 1, -1)
+        prompt_embeds = prompt_embeds.repeat(1, 1, 1).view(bs_embed, seq_len, -1)
+
+        if len(prompt_embeds_list) > 1:
+            pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, 1).view(bs_embed, -1)
         else:
             pooled_prompt_embeds = None
 
         return prompt_embeds, pooled_prompt_embeds
-
+    
     def generate_images(self, prompt):
         # Common image generation code
         pe, ppe = self.dwencode(prompt, self.batch_size, self.n_tokens)
@@ -192,14 +202,15 @@ class StableDiffusionBase:
             width=self.width, height=self.height,
             num_inference_steps=self.n_steps,
             prompt_embeds=pe,
-            pooled_prompt_embeds = ppe,
+            pooled_prompt_embeds=ppe,
             guidance_scale=self.guidance,
             output_type="pil", return_dict=False
         )[0]
         self.last_sequence_number += 1
         btchidx = 0
         for img in images:
-            img.save("spew/" + self.get_filename_prefix() + f"{self.last_sequence_number:09d}-{btchidx:02d}.jpg")
+            img_path = os.path.join("spew", self.get_filename_prefix() + f"{self.last_sequence_number:09d}-{btchidx:02d}.jpg")
+            img.save(img_path)
             btchidx += 1
 
 
@@ -302,35 +313,11 @@ def parse_arguments():
     
     args = parser.parse_args()
  
-    if args.model_id == 'auto':
-        if args.xl:
-            args.model_id = 'stabilityai/stable-diffusion-xl-base-1.0'
-        else:
-            args.model_id = 'runwayml/stable-diffusion-v1-5'
-
-    if args.width == -1:
-        if args.xl:
-            args.width = 1024
-        else:
-            args.width = 512
-
-    if args.height == -1:
-        if args.xl:
-            args.height = 1024
-        else:
-            args.height = 512
-
-    if args.nSteps == -1:
-        if args.lcm:
-            args.nSteps = 8.
-        else:
-            args.nSteps = 20
-
-    if args.guidance == -1:
-        if args.lcm:
-            args.guidance = 0.
-        else:
-            args.guidance = 8.
+    args.model_id = MODEL_ID_SDXL if args.xl else MODEL_ID_SD15
+    args.width = DEFAULT_WIDTH_SDXL if args.xl else DEFAULT_WIDTH_SD15
+    args.height = DEFAULT_HEIGHT_SDXL if args.xl else DEFAULT_HEIGHT_SD15
+    args.nSteps = DEFAULT_LCM_STEPS if args.lcm else DEFAULT_INFER_STEPS
+    args.guidance = DEFAULT_GUIDANCE_LCM if args.lcm else DEFAULT_GUIDANCE_SD15
 
     return args
 
