@@ -342,7 +342,7 @@ def main():
     torch.manual_seed(seed)
 
     if args.xl:
-        model = StableDiffusionSDXL(args.model_id, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.tiny_vae, args.lcm, args.torch_compile)
+        model = StableDiffusionSDXL(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
     else:
         model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
 
