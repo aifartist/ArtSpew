@@ -162,23 +162,25 @@ class StableDiffusionBase:
 
             for encoded_prompt in text_inputs.input_ids:
                 decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
-                self.logger.info(decoded_prompt)
+                self.logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate and prepare embeddings for the model
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
 
-    def generate_random_tokens(self, batch_size, n_random_tokens):
+    def generate_random_token(self):
         max_token_id = self.pipe.tokenizer.vocab_size
         special_token_ids = set(self.pipe.tokenizer.all_special_ids)
 
+        while True:
+            token_id = torch.randint(low=0, high=max_token_id, size=(1,), dtype=torch.int32).item()
+            if token_id not in special_token_ids:
+                return token_id
+            
+    def generate_random_tokens(self, batch_size, n_random_tokens):
         random_tokens = torch.zeros((batch_size, n_random_tokens), dtype=torch.int32)
         for i in range(batch_size):
             for j in range(n_random_tokens):
-                while True:
-                    token_id = torch.randint(low=0, high=max_token_id, size=(1,), dtype=torch.int32).item()
-                    if token_id not in special_token_ids:
-                        random_tokens[i, j] = token_id
-                        break
+                random_tokens[i, j] = self.generate_random_token()
         return random_tokens
 
     def tokenize_prompt(self, tokenizer, prompt):
