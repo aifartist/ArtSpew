@@ -12,12 +12,13 @@ NOT_IMPLEMENTED_MESSAGE = "This method should be implemented in subclasses."
 
 class StableDiffusionBase:
 
-    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_random_tokens, n_steps, guidance, torch_compile):
+    def __init__(self, model_id, tiny, lcm, width, height, batch_count, batch_size, n_random_tokens, n_steps, guidance, torch_compile):
         self.logger = logging.getLogger("ArtSpew")
         self.model_id = model_id
         self.width = width
         self.height = height
         self.batch_size = batch_size
+        self.batch_count = batch_count
         self.n_random_tokens = n_random_tokens
         self.n_steps = n_steps
         self.guidance = guidance
@@ -192,19 +193,20 @@ class StableDiffusionBase:
         return prompt_embeds, pooled_prompt_embeds, decoded_prompts
     
     def generate_images(self, prompt):
-        prompt_embeds, pooled_prompt_embeds, decoded_prompts = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
-        images = self.pipe(
-            width = self.width,
-            height = self.height,
-            num_inference_steps = self.n_steps,
-            prompt_embeds = prompt_embeds,
-            pooled_prompt_embeds = pooled_prompt_embeds,
-            guidance_scale = self.guidance,
-            output_type = "pil",
-            return_dict = False
-        )[0]
         processed_images = []
-        for idx, image in enumerate(images):
-            processed_images.append({"image": image, "prompt": decoded_prompts[idx]})
+        for idx in range(self.batch_count):
+            prompt_embeds, pooled_prompt_embeds, decoded_prompts = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
+            images = self.pipe(
+                width = self.width,
+                height = self.height,
+                num_inference_steps = self.n_steps,
+                prompt_embeds = prompt_embeds,
+                pooled_prompt_embeds = pooled_prompt_embeds,
+                guidance_scale = self.guidance,
+                output_type = "pil",
+                return_dict = False
+            )[0]
+            for idx, image in enumerate(images):
+                processed_images.append({"image": image, "prompt": decoded_prompts[idx]})
 
         return processed_images
