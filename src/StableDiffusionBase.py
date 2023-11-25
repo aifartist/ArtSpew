@@ -7,6 +7,8 @@ from diffusers import (
     AutoencoderTiny
 )
 
+NOT_IMPLEMENTED_MESSAGE = "This method should be implemented in subclasses."
+
 
 class StableDiffusionBase:
 
@@ -25,6 +27,24 @@ class StableDiffusionBase:
             self.load_tiny_vae()
         if torch_compile:
             self.setup_torch_compilation()
+
+    def load_pipeline(self):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
+    def get_tiny_vae_model_id(self):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
+    def get_filename_prefix(self):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
+    def get_tokenizers(self):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
+    def get_text_encoders(self):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
+    def get_lcm_adapter_id(self):
+        raise NotImplementedError("This method should be implemented in subclasses.")
 
     def configure_pipeline(self, lcm):
         pipe = self.load_pipeline()
@@ -72,33 +92,15 @@ class StableDiffusionBase:
                     return_dict = False
                 )
 
-    def load_pipeline(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    def load_tiny_vae(self):
-        vae_model_id = self.get_tiny_vae_model_id()
-        self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
-        self.pipe.vae = self.pipe.vae.cuda()
-
-    def get_tiny_vae_model_id(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    def get_filename_prefix(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    def get_tokenizers(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    def get_text_encoders(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
     def load_and_fuse_lcm(self):
         adapter_id = self.get_lcm_adapter_id()
         self.pipe.load_lora_weights(adapter_id)
         self.pipe.fuse_lora()
 
-    def get_lcm_adapter_id(self):
-        raise NotImplementedError("This method should be implemented in subclasses.")
+    def load_tiny_vae(self):
+        vae_model_id = self.get_tiny_vae_model_id()
+        self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
+        self.pipe.vae = self.pipe.vae.cuda()
 
     def dwencode(self, prompt, batch_size, n_random_tokens):
         if prompt is None:
