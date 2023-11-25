@@ -168,7 +168,18 @@ class StableDiffusionBase:
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
 
     def generate_random_tokens(self, batch_size, n_random_tokens):
-        return torch.randint(low=0, high=49405, size=(batch_size, n_random_tokens), dtype=torch.int32)
+        max_token_id = self.pipe.tokenizer.vocab_size
+        special_token_ids = set(self.pipe.tokenizer.all_special_ids)
+
+        random_tokens = torch.zeros((batch_size, n_random_tokens), dtype=torch.int32)
+        for i in range(batch_size):
+            for j in range(n_random_tokens):
+                while True:
+                    token_id = torch.randint(low=0, high=max_token_id, size=(1,), dtype=torch.int32).item()
+                    if token_id not in special_token_ids:
+                        random_tokens[i, j] = token_id
+                        break
+        return random_tokens
 
     def tokenize_prompt(self, tokenizer, prompt):
         return tokenizer(
@@ -180,14 +191,14 @@ class StableDiffusionBase:
         )
 
     def find_prompt_length(self, text_inputs):
-        return np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
+        return np.where(text_inputs.input_ids[0] == self.pipe.tokenizer.eos_token_id)[0][0] - 1
 
     def append_random_tokens(self, input_ids, random_tokens, prompt_length, n_random_tokens):
         if prompt_length + n_random_tokens > 75:
             raise ValueError("Number of user prompt tokens and random tokens must be <= 75")
         for i in range(len(input_ids)):
             input_ids[i][1+prompt_length:1+prompt_length+n_random_tokens] = random_tokens[i]
-            input_ids[i][1+prompt_length+n_random_tokens] = 49407
+            input_ids[i][1+prompt_length+n_random_tokens] = self.pipe.tokenizer.eos_token_id
         return input_ids
 
     def encode_text(self, text_encoder, text_input_ids):
