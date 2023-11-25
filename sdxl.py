@@ -107,21 +107,23 @@ def warmup(pipe, prompt, guidance):
     print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
     print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
     with torch.inference_mode():
-        pe, ppe = dwencode(pipe, prompt, batchSize, nSteps)
+        pe, ppe = dwencode(pipe, prompt, batchSize, 5)
         img = pipe(
-            width=1024, height=1024,
             prompt_embeds = pe,
             pooled_prompt_embeds = ppe,
+            width=1024, height=1024,
             num_inference_steps=8,
             guidance_scale=guidance,
+            lcm_origin_steps=50,
             output_type="pil", return_dict=False)
-        pe, ppe = dwencode(pipe, prompt, batchSize, nSteps)
+        pe, ppe = dwencode(pipe, prompt, batchSize, 5)
         img = pipe(
-            width=1024, height=1024,
             prompt_embeds = pe,
             pooled_prompt_embeds = ppe,
+            width=1024, height=1024,
             num_inference_steps=8,
             guidance_scale=guidance,
+            lcm_origin_steps=50,
             output_type="pil", return_dict=False)
 
 def genit(pipe, guidance, prompt, nBatches, batchSize, nTokens, nSteps):
@@ -144,6 +146,7 @@ def genit(pipe, guidance, prompt, nBatches, batchSize, nTokens, nSteps):
                 prompt_embeds = pe,
                 pooled_prompt_embeds = ppe,
                 guidance_scale=guidance,
+                lcm_origin_steps=50,
                 output_type="pil", return_dict=False)[0]
             print(f"time = {(1000*(time.time() - tm00)):5.2f} milliseconds")
             lastSeqno += 1
