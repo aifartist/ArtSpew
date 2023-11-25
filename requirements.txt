@@ -20,3 +20,4 @@ transformers
 regex
 accelerate
 omegaconf
+piexif

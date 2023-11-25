@@ -13,6 +13,10 @@ from diffusers import (
     StableDiffusionXLPipeline, 
     AutoencoderTiny
 )
+from PIL import Image, PngImagePlugin
+import piexif
+import piexif.helper
+import json
 
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
@@ -39,7 +43,6 @@ class StableDiffusionBase:
         self.guidance = guidance
 
         self.configure_pipeline(lcm)
-        self.initialize_file_management()
         if tiny:
             self.load_tiny_vae()
         if torch_compile:
@@ -63,20 +66,6 @@ class StableDiffusionBase:
         pipe.to("cuda")
         pipe.unet.to(memory_format=torch.channels_last)
         self.pipe = pipe
-
-    def initialize_file_management(self):
-        last_sequence_number = -1
-        if not os.path.exists('spew'):
-            os.makedirs('spew')
-
-        files = [entry.name for entry in os.scandir('spew')
-                 if entry.name.startswith(self.get_filename_prefix())]
-
-        if files:
-            sorted_files = sorted(files, key=lambda x: int(x.split('-')[1]))
-            last_sequence_number = int(sorted_files[-1].split('-')[1])
-
-        self.last_sequence_number = last_sequence_number
 
     def setup_torch_compilation(self):
 
@@ -160,12 +149,14 @@ class StableDiffusionBase:
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
+            decoded_prompts = []
             for encoded_prompt in text_inputs.input_ids:
                 decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
+                decoded_prompts.append(decoded_prompt)
                 self.logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate and prepare embeddings for the model
-        return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
+        return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds, decoded_prompts)
 
     def generate_random_token(self):
         max_token_id = self.pipe.tokenizer.vocab_size
@@ -209,7 +200,7 @@ class StableDiffusionBase:
         prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
         return prompt_embeds, pooled_prompt_embeds
 
-    def prepare_embeddings_for_model(self, prompt_embeds_list, pooled_prompt_embeds):
+    def prepare_embeddings_for_model(self, prompt_embeds_list, pooled_prompt_embeds, decoded_prompts):
         prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
         prompt_embeds = prompt_embeds.to(dtype=self.pipe.unet.dtype, device='cuda')
         bs_embed, seq_len, _ = prompt_embeds.shape
@@ -220,11 +211,11 @@ class StableDiffusionBase:
         else:
             pooled_prompt_embeds = None
 
-        return prompt_embeds, pooled_prompt_embeds
+        return prompt_embeds, pooled_prompt_embeds, decoded_prompts
     
     def generate_images(self, prompt):
         # Common image generation code
-        prompt_embeds, pooled_prompt_embeds = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
+        prompt_embeds, pooled_prompt_embeds, decoded_prompts = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
         images = self.pipe(
             width = self.width,
             height = self.height,
@@ -235,8 +226,10 @@ class StableDiffusionBase:
             output_type = "pil",
             return_dict = False
         )[0]
-        self.last_sequence_number += 1
-        processed_images = [{"batch_index": idx, "image": image, "prompt": prompt} for idx, image in enumerate(images)]
+        processed_images = []
+        for idx, image in enumerate(images):
+            processed_images.append({"image": image, "prompt": decoded_prompts[idx]})
+
         return processed_images
 
 class StableDiffusionSD15(StableDiffusionBase):
@@ -351,6 +344,46 @@ def parse_arguments():
     return args
 
 
+def save_image_with_geninfo(image, geninfo, filename, extension=None, existing_pnginfo=None, pnginfo_section_name='parameters'):
+    """
+    Saves image to filename, including geninfo as text information for generation info.
+    For PNG images, geninfo is added to existing pnginfo dictionary using the pnginfo_section_name argument as key.
+    For JPG images, there's no dictionary and geninfo just replaces the EXIF description.
+    """
+
+    if extension is None:
+        extension = os.path.splitext(filename)[1]
+
+    image_format = Image.registered_extensions()[extension]
+
+    if extension.lower() == '.png':
+        existing_pnginfo = existing_pnginfo or {}
+        existing_pnginfo[pnginfo_section_name] = geninfo
+        pnginfo_data = PngImagePlugin.PngInfo()
+        for k, v in (existing_pnginfo or {}).items():
+            pnginfo_data.add_text(k, str(v))
+        image.save(filename, format=image_format, pnginfo=pnginfo_data)
+
+    elif extension.lower() in (".jpg", ".jpeg", ".webp"):
+        if image.mode == 'RGBA':
+            image = image.convert("RGB")
+        elif image.mode == 'I;16':
+            image = image.point(lambda p: p * 0.0038910505836576).convert("RGB" if extension.lower() == ".webp" else "L")
+
+        image.save(filename, format=image_format)
+
+        if geninfo is not None:
+            exif_bytes = piexif.dump({
+                "Exif": {
+                    piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(geninfo or "", encoding="unicode")
+                },
+            })
+
+            piexif.insert(exif_bytes, filename)
+    else:
+        image.save(filename, format=image_format, extension='.jpg')
+
+
 def main():
     args = parse_arguments()
 
@@ -380,7 +413,22 @@ def main():
     else:
         model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
 
-    model.generate_images(args.prompt)
+    sequence_number = -1
+    if not os.path.exists('spew'):
+        os.makedirs('spew')
+
+    files = [entry.name for entry in os.scandir('spew')
+                if entry.name.startswith(model.get_filename_prefix())]
+
+    if files:
+        sorted_files = sorted(files, key=lambda x: int(x.split('-')[1]))
+        sequence_number = int(sorted_files[-1].split('-')[1])
+
+    images = model.generate_images(args.prompt)
+    for idx, image in enumerate(images):
+        sequence_number += 1
+        geninfo = f"{image['prompt']}\nSteps: {args.steps}, Sampler: Euler a, CFG scale: {args.guidance}, Seed: {seed}, Size: {args.width}x{args.height}, Model: {args.model_id}"
+        save_image_with_geninfo(image['image'], geninfo, f"spew/{model.get_filename_prefix()}{sequence_number:09d}-{idx:02d}.jpg")
 
 
 if __name__ == "__main__":
