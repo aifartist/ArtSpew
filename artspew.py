@@ -4,7 +4,15 @@ import os
 import argparse
 import torch
 import numpy as np
-from diffusers import AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, LCMScheduler, StableDiffusionPipeline, StableDiffusionXLPipeline, AutoencoderTiny
+import logging
+from diffusers import (
+    AutoPipelineForText2Image, 
+    EulerAncestralDiscreteScheduler, 
+    LCMScheduler, 
+    StableDiffusionPipeline, 
+    StableDiffusionXLPipeline, 
+    AutoencoderTiny
+)
 
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
@@ -21,6 +29,7 @@ DEFAULT_GUIDANCE_LCM = 0.
 class StableDiffusionBase:
 
     def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_random_tokens, n_steps, guidance, torch_compile):
+        self.logger = logging.getLogger("ArtSpew")
         self.model_id = model_id
         self.width = width
         self.height = height
@@ -39,12 +48,17 @@ class StableDiffusionBase:
     def configure_pipeline(self, lcm):
         pipe = self.load_pipeline()
 
+        if not self.logger.isEnabledFor(logging.INFO):
+            # Quiet option is enabled, don't show progress bar.
+            pipe.set_progress_bar_config(disable=True)
+
         if lcm:
+            self.logger.info("Using LCM.")
             pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
-            print("Using LCM")
             self.load_and_fuse_lcm()
         else:
             pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+
 
         pipe.to("cuda")
         pipe.unet.to(memory_format=torch.channels_last)
@@ -71,9 +85,12 @@ class StableDiffusionBase:
         self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
 
         # Warmup
-        print('\nStarting warmup generation of two images.')
-        print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
-        print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
+        self.logger.info(
+            "Starting warmup generation of two images. "
+            "If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating. "
+            "Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this. "
+            "Obviously there is no reason to use compile unless you are going to generate hundreds of images."
+        )
         with torch.inference_mode():
             for _ in [1,2]:
                 prompt_embeds, pooled_prompt_embeds = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
@@ -143,8 +160,7 @@ class StableDiffusionBase:
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
-            # Print each prompt for debugging
-            self.print_encoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_random_tokens, tokenizer)
+            self.log_decoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_random_tokens, tokenizer)
 
         # Concatenate and prepare embeddings for the model
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
@@ -178,13 +194,13 @@ class StableDiffusionBase:
         prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
         return prompt_embeds, pooled_prompt_embeds
 
-    def print_encoded_prompts(self, text_input_ids, batch_size, prompt_length, n_random_tokens, tokenizer):
+    def log_decoded_prompts(self, text_input_ids, batch_size, prompt_length, n_random_tokens, tokenizer):
         seq_no = self.last_sequence_number + 1
         for bi in range(batch_size):
-            print(f"{seq_no:09d}-{bi:02d}: ", end='')
+            decoded_prompt = f"{seq_no:09d}-{bi:02d}: "
             for tid in text_input_ids[bi][1:1+prompt_length+n_random_tokens]:
-                print(f"{tokenizer.decode(tid)} ", end='')
-            print('')
+                decoded_prompt += f"{tokenizer.decode(tid)} "
+            self.logger.info(decoded_prompt)
 
     def prepare_embeddings_for_model(self, prompt_embeds_list, pooled_prompt_embeds):
         prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
@@ -316,6 +332,10 @@ def parse_arguments():
                         help='Guidance value, -1 for auto')
     parser.add_argument('-z', '--torch-compile', action='store_true',
                         help='Using torch.compile for faster inference')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Show debug info')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='Only show errors')        
     
     args = parser.parse_args()
  
@@ -334,9 +354,20 @@ def main():
     if not os.path.exists('spew'):
         os.makedirs('spew')
 
-    print(f"\ngenerating {args.batch_count*args.batch_size} images with {args.steps} LCM steps")
-    print(f"It can take a few minutes to download the model the very first run.")
-    print("After that it can take 10s of seconds to load the rather large sdxl model.")
+    # Setup Logger.
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    elif args.quiet:
+        logging.basicConfig(level=logging.ERROR)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("ArtSpew")
+
+    logger.info(
+        f"Generating {args.batch_count*args.batch_size} images with {args.steps} steps. "
+        "It can take a few minutes to download the model the very first run. "
+        "After that it can take 10s of seconds to load the stable diffusion model. "
+    )
 
     seed = random.randint(0, 2147483647)
     torch.manual_seed(seed)
