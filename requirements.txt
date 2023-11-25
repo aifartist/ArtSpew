@@ -21,3 +21,4 @@ regex
 accelerate
 omegaconf
 piexif
+pathvalidate

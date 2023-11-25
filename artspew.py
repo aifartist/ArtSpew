@@ -9,6 +9,7 @@ import piexif
 import piexif.helper
 from src.StableDiffusionSD15 import StableDiffusionSD15
 from src.StableDiffusionSDXL import StableDiffusionSDXL
+from pathvalidate import sanitize_filename
 
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
@@ -151,7 +152,8 @@ def main():
     for idx, image in enumerate(images):
         sequence_number += 1
         geninfo = f"{image['prompt']}\nSteps: {args.steps}, Sampler: Euler a, CFG scale: {args.guidance}, Seed: {seed}, Size: {args.width}x{args.height}, Model: {args.model_id}"
-        save_image_with_geninfo(image['image'], geninfo, f"spew/{model.get_filename_prefix()}{sequence_number:09d}-{idx:02d}.jpg")
+        safe_prompt = sanitize_filename(image['prompt'])
+        save_image_with_geninfo(image['image'], geninfo, f"spew/{model.get_filename_prefix()}{sequence_number:09d}-{idx:02d}-{safe_prompt}.jpg")
 
 
 if __name__ == "__main__":
