@@ -160,7 +160,9 @@ class StableDiffusionBase:
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
-            self.log_decoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_random_tokens, tokenizer)
+            for encoded_prompt in text_inputs.input_ids:
+                decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
+                self.logger.info(decoded_prompt)
 
         # Concatenate and prepare embeddings for the model
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
@@ -194,14 +196,6 @@ class StableDiffusionBase:
         prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
         return prompt_embeds, pooled_prompt_embeds
 
-    def log_decoded_prompts(self, text_input_ids, batch_size, prompt_length, n_random_tokens, tokenizer):
-        seq_no = self.last_sequence_number + 1
-        for bi in range(batch_size):
-            decoded_prompt = f"{seq_no:09d}-{bi:02d}: "
-            for tid in text_input_ids[bi][1:1+prompt_length+n_random_tokens]:
-                decoded_prompt += f"{tokenizer.decode(tid)} "
-            self.logger.info(decoded_prompt)
-
     def prepare_embeddings_for_model(self, prompt_embeds_list, pooled_prompt_embeds):
         prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
         prompt_embeds = prompt_embeds.to(dtype=self.pipe.unet.dtype, device='cuda')
@@ -229,12 +223,8 @@ class StableDiffusionBase:
             return_dict = False
         )[0]
         self.last_sequence_number += 1
-        btchidx = 0
-        for img in images:
-            img_path = os.path.join("spew", self.get_filename_prefix() + f"{self.last_sequence_number:09d}-{btchidx:02d}.jpg")
-            img.save(img_path)
-            btchidx += 1
-
+        processed_images = [{"batch_index": idx, "image": image, "prompt": prompt} for idx, image in enumerate(images)]
+        return processed_images
 
 class StableDiffusionSD15(StableDiffusionBase):
     def load_pipeline(self):
