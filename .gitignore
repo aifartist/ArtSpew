@@ -5,3 +5,4 @@ spew/
 spewxl/
 hacks/
 .vscode/
+**/__pycache__/

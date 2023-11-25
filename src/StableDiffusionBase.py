@@ -47,10 +47,9 @@ class StableDiffusionBase:
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     def configure_pipeline(self, lcm):
-        pipe = self.load_pipeline()
-        self.setup_scheduler(pipe, lcm)
-        self.configure_memory_format(pipe)
-        self.pipe = pipe
+        self.pipe = self.load_pipeline()
+        self.setup_scheduler(self.pipe, lcm)
+        self.configure_memory_format(self.pipe)
 
     def setup_scheduler(self, pipe, lcm):
         if lcm:
@@ -193,7 +192,6 @@ class StableDiffusionBase:
         return prompt_embeds, pooled_prompt_embeds, decoded_prompts
     
     def generate_images(self, prompt):
-        # Common image generation code
         prompt_embeds, pooled_prompt_embeds, decoded_prompts = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
         images = self.pipe(
             width = self.width,
