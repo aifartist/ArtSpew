@@ -306,7 +306,7 @@ def parse_arguments():
                         help='Batch Size')
     parser.add_argument('-s', '--steps', type=int, default=-1,
                         help='Number of inference steps, -1 for auto')
-    parser.add_argument('-n', 'random-tokens', type=int, default=5,
+    parser.add_argument('-n', '--random-tokens', type=int, default=5,
                         help='Number of random tokens added')
     parser.add_argument('-l', '--lcm', action='store_true',
                         help='Use LCM')
@@ -334,7 +334,7 @@ def main():
     if not os.path.exists('spew'):
         os.makedirs('spew')
 
-    print(f"\ngenerating {args.batch_count*args.batch_size} images with {args.nSteps} LCM steps")
+    print(f"\ngenerating {args.batch_count*args.batch_size} images with {args.steps} LCM steps")
     print(f"It can take a few minutes to download the model the very first run.")
     print("After that it can take 10s of seconds to load the rather large sdxl model.")
 
