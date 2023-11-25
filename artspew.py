@@ -80,11 +80,14 @@ class StableDiffusionBase:
                 self.pipe(
                     prompt_embeds = prompt_embeds,
                     pooled_prompt_embeds = pooled_prompt_embeds,
-                    width=self.width, height=self.height,
-                    num_inference_steps=8,
-                    guidance_scale=0,
-                    lcm_origin_steps=50,
-                    output_type="pil", return_dict=False)
+                    width = self.width, 
+                    height = self.height,
+                    num_inference_steps = 8,
+                    guidance_scale = 0,
+                    lcm_origin_steps = 50,
+                    output_type = "pil", 
+                    return_dict = False
+                )
 
     def load_pipeline(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
@@ -152,10 +155,10 @@ class StableDiffusionBase:
     def tokenize_prompt(self, tokenizer, prompt):
         return tokenizer(
             prompt,
-            padding="max_length",
-            max_length=tokenizer.model_max_length,
-            truncation=True,
-            return_tensors="pt",
+            padding = "max_length",
+            max_length = tokenizer.model_max_length,
+            truncation = True,
+            return_tensors = "pt",
         )
 
     def find_prompt_length(self, text_inputs):
@@ -200,12 +203,14 @@ class StableDiffusionBase:
         # Common image generation code
         prompt_embeds, pooled_prompt_embeds = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
         images = self.pipe(
-            width=self.width, height=self.height,
-            num_inference_steps=self.n_steps,
-            prompt_embeds=prompt_embeds,
-            pooled_prompt_embeds=pooled_prompt_embeds,
-            guidance_scale=self.guidance,
-            output_type="pil", return_dict=False
+            width = self.width,
+            height = self.height,
+            num_inference_steps = self.n_steps,
+            prompt_embeds = prompt_embeds,
+            pooled_prompt_embeds = pooled_prompt_embeds,
+            guidance_scale = self.guidance,
+            output_type = "pil",
+            return_dict = False
         )[0]
         self.last_sequence_number += 1
         btchidx = 0
@@ -220,16 +225,16 @@ class StableDiffusionSD15(StableDiffusionBase):
         if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
             pipe = StableDiffusionPipeline.from_single_file(
                 self.model_id,
-                torch_dtype=torch.float16,
-                variant="fp16",
-                load_safety_checker=False)
+                torch_dtype = torch.float16,
+                variant = "fp16",
+                load_safety_checker = False)
         else:
             pipe = StableDiffusionPipeline.from_pretrained(
                 self.model_id,
-                torch_dtype=torch.float16,
-                variant="fp16",
-                safety_checker=None,
-                requires_safety_checker=False)
+                torch_dtype = torch.float16,
+                variant = "fp16",
+                safety_checker = None,
+                requires_safety_checker = False)
         return pipe
 
     def get_tiny_vae_model_id(self):
@@ -253,17 +258,17 @@ class StableDiffusionSDXL(StableDiffusionBase):
         if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
             pipe = StableDiffusionXLPipeline.from_single_file(
                 self.model_id,
-                torch_dtype=torch.float16,
-                variant="fp16",
-                safety_checker=None,
-                requires_safety_checker=False)
+                torch_dtype = torch.float16,
+                variant = "fp16",
+                safety_checker = None,
+                requires_safety_checker = False)
         else:
             pipe = AutoPipelineForText2Image.from_pretrained(
                 self.model_id,
-                torch_dtype=torch.float16,
-                variant="fp16",
-                safety_checker=None,
-                requires_safety_checker=False)
+                torch_dtype = torch.float16,
+                variant = "fp16",
+                safety_checker = None,
+                requires_safety_checker = False)
         return pipe
 
     def get_tiny_vae_model_id(self):
@@ -337,7 +342,7 @@ def main():
     torch.manual_seed(seed)
 
     if args.xl:
-        model = StableDiffusionSDXL(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
+        model = StableDiffusionSDXL(args.model_id, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.tiny_vae, args.lcm, args.torch_compile)
     else:
         model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
 
