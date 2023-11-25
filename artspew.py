@@ -20,12 +20,12 @@ DEFAULT_GUIDANCE_LCM = 0.
 
 class StableDiffusionBase:
 
-    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance, torch_compile):
+    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_random_tokens, n_steps, guidance, torch_compile):
         self.model_id = model_id
         self.width = width
         self.height = height
         self.batch_size = batch_size
-        self.n_tokens = n_tokens
+        self.n_random_tokens = n_random_tokens
         self.n_steps = n_steps
         self.guidance = guidance
 
@@ -76,10 +76,10 @@ class StableDiffusionBase:
         print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
         with torch.inference_mode():
             for _ in [1,2]:
-                pe, ppe = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
+                prompt_embeds, pooled_prompt_embeds = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
                 self.pipe(
-                    prompt_embeds = pe,
-                    pooled_prompt_embeds = ppe,
+                    prompt_embeds = prompt_embeds,
+                    pooled_prompt_embeds = pooled_prompt_embeds,
                     width=self.width, height=self.height,
                     num_inference_steps=8,
                     guidance_scale=0,
@@ -114,11 +114,11 @@ class StableDiffusionBase:
     def get_lcm_adapter_id(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
-    def dwencode(self, prompt, batch_size, n_tokens):
+    def dwencode(self, prompt, batch_size, n_random_tokens):
         if prompt is None:
             prompt = ''
 
-        if not 0 <= n_tokens <= 75:
+        if not 0 <= n_random_tokens <= 75:
             raise ValueError("n random tokens must be between 0 and 75")
 
         prompt = [prompt] * batch_size  # Replicate the prompt for the batch
@@ -126,7 +126,7 @@ class StableDiffusionBase:
         text_encoders = self.get_text_encoders()
 
         # Generate random tokens if needed
-        randIIs = self.generate_random_tokens(batch_size, n_tokens) if n_tokens > 0 else None
+        random_tokens = self.generate_random_tokens(batch_size, n_random_tokens) if n_random_tokens > 0 else None
 
         prompt_embeds_list = []
         for tokenizer, text_encoder in zip(tokenizers, text_encoders):
@@ -134,20 +134,20 @@ class StableDiffusionBase:
             prompt_length = self.find_prompt_length(text_inputs)
 
             # Append random tokens to the user prompt if needed
-            if n_tokens > 0:
-                text_inputs.input_ids = self.append_random_tokens(text_inputs.input_ids, randIIs, prompt_length, n_tokens)
+            if n_random_tokens > 0:
+                text_inputs.input_ids = self.append_random_tokens(text_inputs.input_ids, random_tokens, prompt_length, n_random_tokens)
 
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
             # Print each prompt for debugging
-            self.print_encoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_tokens, tokenizer)
+            self.print_encoded_prompts(text_inputs.input_ids, batch_size, prompt_length, n_random_tokens, tokenizer)
 
         # Concatenate and prepare embeddings for the model
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds)
 
-    def generate_random_tokens(self, batch_size, n_tokens):
-        return torch.randint(low=0, high=49405, size=(batch_size, n_tokens), dtype=torch.int32)
+    def generate_random_tokens(self, batch_size, n_random_tokens):
+        return torch.randint(low=0, high=49405, size=(batch_size, n_random_tokens), dtype=torch.int32)
 
     def tokenize_prompt(self, tokenizer, prompt):
         return tokenizer(
@@ -161,12 +161,12 @@ class StableDiffusionBase:
     def find_prompt_length(self, text_inputs):
         return np.where(text_inputs.input_ids[0] == 49407)[0][0] - 1
 
-    def append_random_tokens(self, input_ids, random_tokens, prompt_length, n_tokens):
-        if prompt_length + n_tokens > 75:
+    def append_random_tokens(self, input_ids, random_tokens, prompt_length, n_random_tokens):
+        if prompt_length + n_random_tokens > 75:
             raise ValueError("Number of user prompt tokens and random tokens must be <= 75")
         for i in range(len(input_ids)):
-            input_ids[i][1+prompt_length:1+prompt_length+n_tokens] = random_tokens[i]
-            input_ids[i][1+prompt_length+n_tokens] = 49407
+            input_ids[i][1+prompt_length:1+prompt_length+n_random_tokens] = random_tokens[i]
+            input_ids[i][1+prompt_length+n_random_tokens] = 49407
         return input_ids
 
     def encode_text(self, text_encoder, text_input_ids):
@@ -175,11 +175,11 @@ class StableDiffusionBase:
         prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
         return prompt_embeds, pooled_prompt_embeds
 
-    def print_encoded_prompts(self, text_input_ids, batch_size, prompt_length, n_tokens, tokenizer):
-        seqno = self.last_sequence_number + 1
+    def print_encoded_prompts(self, text_input_ids, batch_size, prompt_length, n_random_tokens, tokenizer):
+        seq_no = self.last_sequence_number + 1
         for bi in range(batch_size):
-            print(f"{seqno:09d}-{bi:02d}: ", end='')
-            for tid in text_input_ids[bi][1:1+prompt_length+n_tokens]:
+            print(f"{seq_no:09d}-{bi:02d}: ", end='')
+            for tid in text_input_ids[bi][1:1+prompt_length+n_random_tokens]:
                 print(f"{tokenizer.decode(tid)} ", end='')
             print('')
 
@@ -198,12 +198,12 @@ class StableDiffusionBase:
     
     def generate_images(self, prompt):
         # Common image generation code
-        pe, ppe = self.dwencode(prompt, self.batch_size, self.n_tokens)
+        prompt_embeds, pooled_prompt_embeds = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
         images = self.pipe(
             width=self.width, height=self.height,
             num_inference_steps=self.n_steps,
-            prompt_embeds=pe,
-            pooled_prompt_embeds=ppe,
+            prompt_embeds=prompt_embeds,
+            pooled_prompt_embeds=pooled_prompt_embeds,
             guidance_scale=self.guidance,
             output_type="pil", return_dict=False
         )[0]
@@ -287,7 +287,7 @@ def parse_arguments():
 
     parser.add_argument('--xl', action=argparse.BooleanOptionalAction,
                         help='Use SDXL')
-    parser.add_argument('-m', '--model_id', type=str, default='auto',
+    parser.add_argument('-m', '--model-id', type=str, default='auto',
                         help='Specify the input file')
     parser.add_argument('-p', '--prompt', type=str,
                         help='Specify the start of the prompt')
@@ -299,9 +299,9 @@ def parse_arguments():
                         help='Number of batches to do')
     parser.add_argument('-b', '--batch-size', type=int, default=1,
                         help='Batch Size')
-    parser.add_argument('-s', '--nSteps', type=int, default=-1,
+    parser.add_argument('-s', '--steps', type=int, default=-1,
                         help='Number of inference steps, -1 for auto')
-    parser.add_argument('-n', '--nRandTokens', type=int, default=5,
+    parser.add_argument('-n', 'random-tokens', type=int, default=5,
                         help='Number of random tokens added')
     parser.add_argument('-l', '--lcm', action='store_true',
                         help='Use LCM')
@@ -317,7 +317,7 @@ def parse_arguments():
     args.model_id = MODEL_ID_SDXL if args.xl else MODEL_ID_SD15
     args.width = DEFAULT_WIDTH_SDXL if args.xl else DEFAULT_WIDTH_SD15
     args.height = DEFAULT_HEIGHT_SDXL if args.xl else DEFAULT_HEIGHT_SD15
-    args.nSteps = DEFAULT_LCM_STEPS if args.lcm else DEFAULT_INFER_STEPS
+    args.steps = DEFAULT_LCM_STEPS if args.lcm else DEFAULT_INFER_STEPS
     args.guidance = DEFAULT_GUIDANCE_LCM if args.lcm else DEFAULT_GUIDANCE_SD15
 
     return args
@@ -337,9 +337,9 @@ def main():
     torch.manual_seed(seed)
 
     if args.xl:
-        model = StableDiffusionSDXL(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance, args.torch_compile)
+        model = StableDiffusionSDXL(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
     else:
-        model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance, args.torch_compile)
+        model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.random_tokens, args.steps, args.guidance, args.torch_compile)
 
     model.generate_images(args.prompt)
 
