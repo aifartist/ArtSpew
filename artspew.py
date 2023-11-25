@@ -4,7 +4,7 @@ import os
 import argparse
 import torch
 import numpy as np
-from diffusers import AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, LCMScheduler, StableDiffusionPipeline, StableDiffusionXLPipeline
+from diffusers import AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, LCMScheduler, StableDiffusionPipeline, StableDiffusionXLPipeline, AutoencoderTiny
 
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
@@ -19,8 +19,8 @@ DEFAULT_GUIDANCE_LCM = 0.
 
 
 class StableDiffusionBase:
-    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance, torch_compile):
 
+    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance, torch_compile):
         self.model_id = model_id
         self.width = width
         self.height = height
@@ -29,66 +29,67 @@ class StableDiffusionBase:
         self.n_steps = n_steps
         self.guidance = guidance
 
+        self.configure_pipeline(lcm)
+        self.initialize_file_management()
+        if tiny:
+            self.load_tiny_vae()
+        if torch_compile:
+            self.setup_torch_compilation()
+
+    def configure_pipeline(self, lcm):
         pipe = self.load_pipeline()
 
         if lcm:
             pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
+            print("Using LCM")
+            self.load_and_fuse_lcm()
         else:
-            # ETA to first complaint I don't have your fav Scheduler: 4.07us
             pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
         pipe.to("cuda")
         pipe.unet.to(memory_format=torch.channels_last)
-
-        if tiny:
-            print("Using Tiny VAE")
-            self.load_tiny_vae()
-
-        if lcm:
-            print("Using LCM")
-            self.load_and_fuse_lcm()
-
         self.pipe = pipe
 
+    def initialize_file_management(self):
         last_sequence_number = -1
+        if not os.path.exists('spew'):
+            os.makedirs('spew')
 
-        # Use os.scandir() to efficiently list and filter files
         files = [entry.name for entry in os.scandir('spew')
-                if entry.name.startswith(self.get_filename_prefix())]
+                 if entry.name.startswith(self.get_filename_prefix())]
 
-        if len(files) > 0:
-            sortedFiles = sorted(files, key=lambda x: int(x.split('-')[1]))
-            last_sequence_number = int(sortedFiles[-1].split('-')[1])
-        else:
-            last_sequence_number = -1
+        if files:
+            sorted_files = sorted(files, key=lambda x: int(x.split('-')[1]))
+            last_sequence_number = int(sorted_files[-1].split('-')[1])
+
         self.last_sequence_number = last_sequence_number
 
-        if torch_compile:
-            pipe.text_encoder = torch.compile(pipe.text_encoder, mode='max-autotune')
-            pipe.unet = torch.compile(pipe.unet, mode='max-autotune')
-            pipe.vae = torch.compile(pipe.vae, mode='max-autotune')
+    def setup_torch_compilation(self):
 
-            # Warmup
-            print('\nStarting warmup generation of two images.')
-            print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
-            print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
-            with torch.inference_mode():
-                for _ in [1,2]:
-                    pe, ppe = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
-                    pipe(
-                        prompt_embeds = pe,
-                        pooled_prompt_embeds = ppe,
-                        width=self.width, height=self.height,
-                        num_inference_steps=8,
-                        guidance_scale=0,
-                        lcm_origin_steps=50,
-                        output_type="pil", return_dict=False)
+        self.pipe.text_encoder = torch.compile(self.pipe.text_encoder, mode='max-autotune')
+        self.pipe.unet = torch.compile(self.pipe.unet, mode='max-autotune')
+        self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
+
+        # Warmup
+        print('\nStarting warmup generation of two images.')
+        print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
+        print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
+        with torch.inference_mode():
+            for _ in [1,2]:
+                pe, ppe = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
+                self.pipe(
+                    prompt_embeds = pe,
+                    pooled_prompt_embeds = ppe,
+                    width=self.width, height=self.height,
+                    num_inference_steps=8,
+                    guidance_scale=0,
+                    lcm_origin_steps=50,
+                    output_type="pil", return_dict=False)
 
     def load_pipeline(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     def load_tiny_vae(self):
-        from diffusers import AutoencoderTiny
         vae_model_id = self.get_tiny_vae_model_id()
         self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
         self.pipe.vae = self.pipe.vae.cuda()
@@ -300,7 +301,7 @@ def parse_arguments():
                         help='Batch Size')
     parser.add_argument('-s', '--nSteps', type=int, default=-1,
                         help='Number of inference steps, -1 for auto')
-    parser.add_argument('-n', '--nRandTokens', type=int, default=0,
+    parser.add_argument('-n', '--nRandTokens', type=int, default=5,
                         help='Number of random tokens added')
     parser.add_argument('-l', '--lcm', action='store_true',
                         help='Use LCM')
