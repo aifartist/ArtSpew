@@ -1,17 +1,14 @@
 import time
 import random
-import os, signal
-import subprocess
-from subprocess import check_output
+import os
 import argparse
-
 import torch
 import numpy as np
-
 from diffusers import AutoPipelineForText2Image, EulerAncestralDiscreteScheduler, LCMScheduler, StableDiffusionPipeline, StableDiffusionXLPipeline
 
+
 class StableDiffusionBase:
-    def __init__(self, model_id, torch_dtype, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance):
+    def __init__(self, model_id, tiny, lcm, width, height, batch_size, n_tokens, n_steps, guidance, torch_compile):
 
         self.model_id = model_id
         self.width = width
@@ -33,9 +30,11 @@ class StableDiffusionBase:
         pipe.unet.to(memory_format=torch.channels_last)
 
         if tiny:
+            print("Using Tiny VAE")
             self.load_tiny_vae()
 
         if lcm:
+            print("Using LCM")
             self.load_and_fuse_lcm()
 
         self.pipe = pipe
@@ -52,6 +51,27 @@ class StableDiffusionBase:
         else:
             last_sequence_number = -1
         self.last_sequence_number = last_sequence_number
+
+        if torch_compile:
+            pipe.text_encoder = torch.compile(pipe.text_encoder, mode='max-autotune')
+            pipe.unet = torch.compile(pipe.unet, mode='max-autotune')
+            pipe.vae = torch.compile(pipe.vae, mode='max-autotune')
+
+            # Warmup
+            print('\nStarting warmup generation of two images.')
+            print('If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating.  Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this')
+            print('Obviously there is no reason to use compile unless you are going to generate hundreds of images')
+            with torch.inference_mode():
+                for _ in [1,2]:
+                    pe, ppe = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
+                    pipe(
+                        prompt_embeds = pe,
+                        pooled_prompt_embeds = ppe,
+                        width=self.width, height=self.height,
+                        num_inference_steps=8,
+                        guidance_scale=0,
+                        lcm_origin_steps=50,
+                        output_type="pil", return_dict=False)
 
     def load_pipeline(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
@@ -82,9 +102,7 @@ class StableDiffusionBase:
     def get_lcm_adapter_id(self):
         raise NotImplementedError("This method should be implemented in subclasses.")
 
-    def dwencode(self, prompt):
-        n_tokens = self.n_tokens
-        batch_size = self.batch_size
+    def dwencode(self, prompt, batch_size, n_tokens):
         pipe = self.pipe
 
         if prompt == None:
@@ -169,7 +187,7 @@ class StableDiffusionBase:
 
     def generate_images(self, prompt):
         # Common image generation code
-        pe, ppe = self.dwencode(prompt)
+        pe, ppe = self.dwencode(prompt, self.batch_size, self.n_tokens)
         images = self.pipe(
             width=self.width, height=self.height,
             num_inference_steps=self.n_steps,
@@ -323,11 +341,6 @@ def main():
     if not os.path.exists('spew'):
         os.makedirs('spew')
 
-    if args.lcm:
-        print("Using LCM")
-    if args.tiny_vae:
-        print("Using Tiny VAE")
-
     print(f"\ngenerating {args.batch_count*args.batch_size} images with {args.nSteps} LCM steps")
     print(f"It can take a few minutes to download the model the very first run.")
     print("After that it can take 10s of seconds to load the rather large sdxl model.")
@@ -336,9 +349,9 @@ def main():
     torch.manual_seed(seed)
 
     if args.xl:
-        model = StableDiffusionSDXL(args.model_id, torch.float16, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance)
+        model = StableDiffusionSDXL(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance, args.torch_compile)
     else:
-        model = StableDiffusionSD15(args.model_id, torch.float16, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance)
+        model = StableDiffusionSD15(args.model_id, args.tiny_vae, args.lcm, args.width, args.height, args.batch_size, args.nRandTokens, args.nSteps, args.guidance, args.torch_compile)
 
     model.generate_images(args.prompt)
 
