@@ -203,6 +203,7 @@ class StableDiffusionBase:
                 prompt_embeds = prompt_embeds,
                 pooled_prompt_embeds = pooled_prompt_embeds,
                 guidance_scale = self.guidance,
+                lcm_origin_steps = 50,
                 output_type = "pil",
                 return_dict = False
             )[0]
