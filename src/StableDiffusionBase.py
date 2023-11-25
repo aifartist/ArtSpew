@@ -28,11 +28,11 @@ class StableDiffusionBase:
 
     def configure_pipeline(self, lcm):
         pipe = self.load_pipeline()
+        self.setup_scheduler(pipe, lcm)
+        self.configure_memory_format(pipe)
+        self.pipe = pipe
 
-        if not self.logger.isEnabledFor(logging.INFO):
-            # Quiet option is enabled, don't show progress bar.
-            pipe.set_progress_bar_config(disable=True)
-
+    def setup_scheduler(self, pipe, lcm):
         if lcm:
             self.logger.info("Using LCM.")
             pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
@@ -40,18 +40,17 @@ class StableDiffusionBase:
         else:
             pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-
+    def configure_memory_format(self, pipe):
         pipe.to("cuda")
         pipe.unet.to(memory_format=torch.channels_last)
-        self.pipe = pipe
 
     def setup_torch_compilation(self):
-
         self.pipe.text_encoder = torch.compile(self.pipe.text_encoder, mode='max-autotune')
         self.pipe.unet = torch.compile(self.pipe.unet, mode='max-autotune')
         self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
+        self.perform_warmup()
 
-        # Warmup
+    def perform_warmup(self):
         self.logger.info(
             "Starting warmup generation of two images. "
             "If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating. "
