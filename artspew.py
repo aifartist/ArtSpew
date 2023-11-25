@@ -22,7 +22,7 @@ DEFAULT_HEIGHT_SD15 = 512
 DEFAULT_HEIGHT_SDXL = 1024
 DEFAULT_LCM_STEPS = 8.
 DEFAULT_INFER_STEPS = 20
-DEFAULT_GUIDANCE_SD15 = 8.
+DEFAULT_GUIDANCE_SD = 8.
 DEFAULT_GUIDANCE_LCM = 0.
 
 
@@ -343,7 +343,7 @@ def parse_arguments():
     args.width = DEFAULT_WIDTH_SDXL if args.xl else DEFAULT_WIDTH_SD15
     args.height = DEFAULT_HEIGHT_SDXL if args.xl else DEFAULT_HEIGHT_SD15
     args.steps = DEFAULT_LCM_STEPS if args.lcm else DEFAULT_INFER_STEPS
-    args.guidance = DEFAULT_GUIDANCE_LCM if args.lcm else DEFAULT_GUIDANCE_SD15
+    args.guidance = DEFAULT_GUIDANCE_LCM if args.lcm else DEFAULT_GUIDANCE_SD
 
     return args
 
