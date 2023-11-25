@@ -128,11 +128,11 @@ class StableDiffusionBase:
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
 
-            decoded_prompts = []
-            for encoded_prompt in text_inputs.input_ids:
-                decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
-                decoded_prompts.append(decoded_prompt)
-                self.logger.info("Prompt: " + decoded_prompt)
+        decoded_prompts = []
+        for encoded_prompt in text_inputs.input_ids:
+            decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
+            decoded_prompts.append(decoded_prompt)
+            self.logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate and prepare embeddings for the model
         return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds, decoded_prompts)
