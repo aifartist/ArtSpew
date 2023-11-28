@@ -22,6 +22,7 @@ class StableDiffusionBase:
         self.n_random_tokens = n_random_tokens
         self.n_steps = n_steps
         self.guidance = guidance
+        self.pipe = None
 
         self.configure_pipeline(lcm)
         if tiny:
@@ -60,7 +61,8 @@ class StableDiffusionBase:
         else:
             pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
-    def configure_memory_format(self, pipe):
+    @staticmethod
+    def configure_memory_format(pipe):
         pipe.to("cuda")
         pipe.unet.to(memory_format=torch.channels_last)
 
@@ -74,22 +76,22 @@ class StableDiffusionBase:
         self.logger.info(
             "Starting warmup generation of two images. "
             "If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating. "
-            "Once the compile is done for a paticular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this. "
+            "Once the compile is done for a particular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this. "
             "Obviously there is no reason to use compile unless you are going to generate hundreds of images."
         )
         with torch.inference_mode():
-            for _ in [1,2]:
-                prompt_embeds, pooled_prompt_embeds = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
+            for _ in [1, 2]:
+                prompt_embeds, pooled_prompt_embeds, _ = self.dwencode('The cat in the hat is fat', self.batch_size, 5)
                 self.pipe(
-                    prompt_embeds = prompt_embeds,
-                    pooled_prompt_embeds = pooled_prompt_embeds,
-                    width = self.width, 
-                    height = self.height,
-                    num_inference_steps = 8,
-                    guidance_scale = 0,
-                    lcm_origin_steps = 50,
-                    output_type = "pil", 
-                    return_dict = False
+                    prompt_embeds=prompt_embeds,
+                    pooled_prompt_embeds=pooled_prompt_embeds,
+                    width=self.width,
+                    height=self.height,
+                    num_inference_steps=8,
+                    guidance_scale=0,
+                    lcm_origin_steps=50,
+                    output_type="pil",
+                    return_dict=False
                 )
 
     def load_and_fuse_lcm(self):
@@ -117,8 +119,11 @@ class StableDiffusionBase:
         random_tokens = self.generate_random_tokens(batch_size, n_random_tokens) if n_random_tokens > 0 else None
 
         prompt_embeds_list = []
+        pooled_prompt_embeds_list = []
+        text_inputs_list = []
         for tokenizer, text_encoder in zip(tokenizers, text_encoders):
             text_inputs = self.tokenize_prompt(tokenizer, prompt)
+            text_inputs_list.append(text_inputs)
             prompt_length = self.find_prompt_length(text_inputs)
 
             # Append random tokens to the user prompt if needed
@@ -127,15 +132,16 @@ class StableDiffusionBase:
 
             prompt_embeds, pooled_prompt_embeds = self.encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
+            pooled_prompt_embeds_list.append(pooled_prompt_embeds)
 
         decoded_prompts = []
-        for encoded_prompt in text_inputs.input_ids:
-            decoded_prompt = tokenizer.decode(encoded_prompt, skip_special_tokens=True)
+        for encoded_prompt in text_inputs_list[0].input_ids:
+            decoded_prompt = tokenizers[0].decode(encoded_prompt, skip_special_tokens=True)
             decoded_prompts.append(decoded_prompt)
             self.logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate and prepare embeddings for the model
-        return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds, decoded_prompts)
+        return self.prepare_embeddings_for_model(prompt_embeds_list, pooled_prompt_embeds_list, decoded_prompts)
 
     def generate_random_token(self):
         max_token_id = self.pipe.tokenizer.vocab_size
@@ -153,13 +159,14 @@ class StableDiffusionBase:
                 random_tokens[i, j] = self.generate_random_token()
         return random_tokens
 
-    def tokenize_prompt(self, tokenizer, prompt):
+    @staticmethod
+    def tokenize_prompt(tokenizer, prompt):
         return tokenizer(
             prompt,
-            padding = "max_length",
-            max_length = tokenizer.model_max_length,
-            truncation = True,
-            return_tensors = "pt",
+            padding="max_length",
+            max_length=tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt",
         )
 
     def find_prompt_length(self, text_inputs):
@@ -173,7 +180,8 @@ class StableDiffusionBase:
             input_ids[i][1+prompt_length+n_random_tokens] = self.pipe.tokenizer.eos_token_id
         return input_ids
 
-    def encode_text(self, text_encoder, text_input_ids):
+    @staticmethod
+    def encode_text(text_encoder, text_input_ids):
         prompt_embeds = text_encoder(text_input_ids.to('cuda'), output_hidden_states=True)
         pooled_prompt_embeds = prompt_embeds[0]
         prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
@@ -197,17 +205,17 @@ class StableDiffusionBase:
         for idx in range(self.batch_count):
             prompt_embeds, pooled_prompt_embeds, decoded_prompts = self.dwencode(prompt, self.batch_size, self.n_random_tokens)
             images = self.pipe(
-                width = self.width,
-                height = self.height,
-                num_inference_steps = self.n_steps,
-                prompt_embeds = prompt_embeds,
-                pooled_prompt_embeds = pooled_prompt_embeds,
-                guidance_scale = self.guidance,
-                lcm_origin_steps = 50,
-                output_type = "pil",
-                return_dict = False
+                width=self.width,
+                height=self.height,
+                num_inference_steps=self.n_steps,
+                prompt_embeds=prompt_embeds,
+                pooled_prompt_embeds=pooled_prompt_embeds,
+                guidance_scale=self.guidance,
+                lcm_origin_steps=50,
+                output_type="pil",
+                return_dict=False
             )[0]
-            for idx, image in enumerate(images):
-                processed_images.append({"image": image, "prompt": decoded_prompts[idx]})
+            for image_idx, image in enumerate(images):
+                processed_images.append({"image": image, "prompt": decoded_prompts[image_idx]})
 
         return processed_images

@@ -8,16 +8,16 @@ class StableDiffusionSD15(StableDiffusionBase):
         if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
             pipe = StableDiffusionPipeline.from_single_file(
                 self.model_id,
-                torch_dtype = torch.float16,
-                variant = "fp16",
-                load_safety_checker = False)
+                torch_dtype=torch.float16,
+                variant="fp16",
+                load_safety_checker=False)
         else:
             pipe = StableDiffusionPipeline.from_pretrained(
                 self.model_id,
-                torch_dtype = torch.float16,
-                variant = "fp16",
-                safety_checker = None,
-                requires_safety_checker = False)
+                torch_dtype=torch.float16,
+                variant="fp16",
+                safety_checker=None,
+                requires_safety_checker=False)
         return pipe
 
     def get_tiny_vae_model_id(self):
@@ -34,4 +34,3 @@ class StableDiffusionSD15(StableDiffusionBase):
     
     def get_text_encoders(self):
         return [self.pipe.text_encoder]
-

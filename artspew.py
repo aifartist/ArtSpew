@@ -2,7 +2,6 @@ import random
 import os
 import argparse
 import torch
-import numpy as np
 import logging
 from PIL import Image, PngImagePlugin
 import piexif
@@ -14,8 +13,8 @@ from pathvalidate import sanitize_filename
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_WIDTH_SD15 = 512
-DEFAULT_WIDTH_SDXL = 1024
 DEFAULT_HEIGHT_SD15 = 512
+DEFAULT_WIDTH_SDXL = 1024
 DEFAULT_HEIGHT_SDXL = 1024
 DEFAULT_LCM_STEPS = 8
 DEFAULT_INFER_STEPS = 20
