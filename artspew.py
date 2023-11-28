@@ -58,8 +58,9 @@ def parse_arguments():
                         help='Only show errors')        
     
     args = parser.parse_args()
- 
-    args.model_id = MODEL_ID_SDXL if args.xl else MODEL_ID_SD15
+
+    if args.model_id == 'auto':
+        args.model_id = MODEL_ID_SDXL if args.xl else MODEL_ID_SD15
     args.width = DEFAULT_WIDTH_SDXL if args.xl else DEFAULT_WIDTH_SD15
     args.height = DEFAULT_HEIGHT_SDXL if args.xl else DEFAULT_HEIGHT_SD15
     args.steps = DEFAULT_LCM_STEPS if args.lcm else DEFAULT_INFER_STEPS
