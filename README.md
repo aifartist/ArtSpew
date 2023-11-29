@@ -40,7 +40,7 @@ The new images with appear in the directory named **spew/**.  Even at nSteps=4 t
 
 Then try to pick a subject like "Mutant kitty monsters with glowing eyes, H.R.Giger style" and gen random versions of it.  THe command below is doing 10 inference steps and appending 5 random tokens to the prompt.
 
-> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -c 32 -b 2 -s 10 -n 5 -l -t -g 0
+> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -c 32 -b 2 -s 10 -r 5 -l -t -g 0
 
 #### As a python module
 

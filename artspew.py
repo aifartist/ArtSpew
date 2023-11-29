@@ -42,25 +42,25 @@ def parse_arguments():
                         help='Specify the input file')
     parser.add_argument('-p', '--prompt', type=str,
                         help='Specify the start of the prompt')
-    parser.add_argument('--width', type=int, default=DEFAULT_WIDTH,
+    parser.add_argument('-w', '--width', type=int, default=DEFAULT_WIDTH,
                         help='Image width, -1 for auto')
-    parser.add_argument('--height', type=int, default=DEFAULT_HEIGHT,
+    parser.add_argument('-h', '--height', type=int, default=DEFAULT_HEIGHT,
                         help='Image height, -1 for auto')
-    parser.add_argument('-c', '--batch-count', type=int, default=DEFAULT_BATCH_COUNT,
+    parser.add_argument('-n', '--number-of-images', type=int, default=DEFAULT_BATCH_COUNT,
                         help='Number of batches to do')
     parser.add_argument('-b', '--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
                         help='Batch Size')
-    parser.add_argument('-s', '--steps', type=int, default=DEFAULT_STEPS,
+    parser.add_argument('-s', '--n_steps', type=int, default=DEFAULT_STEPS,
                         help='Number of inference steps, -1 for auto')
-    parser.add_argument('-n', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
+    parser.add_argument('-r', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
                         help='Number of random tokens added')
-    parser.add_argument('-l', '--lcm', action='store_true',
+    parser.add_argument('--lcm', action='store_true',
                         help='Use LCM')
-    parser.add_argument('-t', '--tiny-vae', action='store_true',
+    parser.add_argument('--tiny-vae', action='store_true',
                         help='Use the tiny VAE')
     parser.add_argument('-g', '--guidance', type=float, default=DEFAULT_GUIDANCE,
                         help='Guidance value, -1 for auto')
-    parser.add_argument('-z', '--torch-compile', action='store_true',
+    parser.add_argument('--torch-compile', action='store_true',
                         help='Using torch.compile for faster inference')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Show debug info')
