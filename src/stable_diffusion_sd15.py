@@ -1,19 +1,18 @@
-from src.StableDiffusionBase import StableDiffusionBase
-from diffusers import StableDiffusionXLPipeline, AutoPipelineForText2Image
+from src.stable_diffusion_base import StableDiffusionBase
+from diffusers import StableDiffusionPipeline
 import torch
 
 
-class StableDiffusionSDXL(StableDiffusionBase):
+class StableDiffusionSD15(StableDiffusionBase):
     def load_pipeline(self):
         if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
-            pipe = StableDiffusionXLPipeline.from_single_file(
+            pipe = StableDiffusionPipeline.from_single_file(
                 self.model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
-                safety_checker=None,
-                requires_safety_checker=False)
+                load_safety_checker=False)
         else:
-            pipe = AutoPipelineForText2Image.from_pretrained(
+            pipe = StableDiffusionPipeline.from_pretrained(
                 self.model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
@@ -22,16 +21,16 @@ class StableDiffusionSDXL(StableDiffusionBase):
         return pipe
 
     def get_tiny_vae_model_id(self):
-        return 'madebyollin/taesdxl'
+        return 'madebyollin/taesd'
 
     def get_lcm_adapter_id(self):
-        return 'latent-consistency/lcm-lora-sdxl'
-
+        return "latent-consistency/lcm-lora-sdv1-5"
+    
     def get_filename_prefix(self):
-        return "sdxl-"
-
+        return "sd15-"
+    
     def get_tokenizers(self):
-        return [self.pipe.tokenizer, self.pipe.tokenizer_2]
+        return [self.pipe.tokenizer]
     
     def get_text_encoders(self):
-        return [self.pipe.text_encoder, self.pipe.text_encoder_2]
+        return [self.pipe.text_encoder]
