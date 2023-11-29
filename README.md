@@ -1,13 +1,16 @@
 # ArtSpew
 An infinite number of monkeys randomly throwing paint at a canvas
 
-### Explore the diversity of Stable Diffusion through random prompt embeddings.
+## Explore the diversity of Stable Diffusion through random prompt embeddings.
 Using randomly generated token id's this app can generate a huge diverse set of images very rapidly.  I've created 1000 images in 34.6 seconds on a 4090.  That is not a typo.  4 step LCM, 512x512, batchsize=8, using torch.compile.  With 1024x1024 batchsize=2 sdxl you can get great images in under .46 seconds per image
 
 Tongue in cheek:
 In ancient granite Wikipedia carvings dated near the end of August 2022 Stable Diffusion was inscribed and human artists were no more. They were replaced by AI Artists typing words, getting the spelling right 2 out of 3 times and usually finding the "Generate" button.  Now, eons later, we are at a point where AI Artists will soon be replaced.  The dawn of ArtSpew is at hand.  Harnessing the magic of a random number generator you can excrete 1000 random images very quickly.
 
-### Setup Instructions - Linux centric
+## Installation
+
+### Linux
+
 ```
 # Get the code
 git clone https://github.com/aifartist/ArtSpew
@@ -22,7 +25,8 @@ source venv/bin/activate
 # Install the required dependencies
 pip3 install -r requirements.txt
 ```
-### How to spew art with no discernible talent.  :-)
+
+## How to spew art with no discernible talent.  :-)
 
 ### As a CLI
 
@@ -40,9 +44,9 @@ The new images with appear in the directory named **spew/**.  Even at nSteps=4 t
 
 Then try to pick a subject like "Mutant kitty monsters with glowing eyes, H.R.Giger style" and gen random versions of it.  THe command below is doing 10 inference steps and appending 5 random tokens to the prompt.
 
-> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -c 32 -b 2 -s 10 -r 5 -l -t -g 0
+> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -c 32 -b 2 -s 10 -r 5 --lcm --tiny-vae -g 0
 
-#### As a python module
+### As a python module
 
 ```
 from artspew import ArtSpew
