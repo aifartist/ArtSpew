@@ -71,6 +71,8 @@ class Prompt:
 
         initial_text_list = self.batch_size * [self.initial_text]  # Replicate the prompt for the batch
 
+        prompt_embeds = None
+        pooled_prompt_embeds = None
         prompt_embeds_list = []
         pooled_prompt_embeds_list = []
         text_inputs_list = []
@@ -88,6 +90,9 @@ class Prompt:
             prompt_embeds_list.append(prompt_embeds)
             pooled_prompt_embeds_list.append(pooled_prompt_embeds)
 
+        if prompt_embeds is None:
+            raise ValueError("Prompt embeddings must not be None.")
+
         decoded_prompts = []
         for encoded_prompt in text_inputs_list[0].input_ids:
             decoded_prompt = self._tokenizers[0].decode(encoded_prompt, skip_special_tokens=True)
@@ -95,11 +100,13 @@ class Prompt:
             self._logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate the prompt embeddings from the two encoders.
-        prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
+        if len(prompt_embeds_list) > 1:
+            prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
         prompt_embeds = prompt_embeds.to(dtype=self._unet.dtype, device='cuda')
         bs_embed, seq_len, _ = prompt_embeds.shape
         prompt_embeds = prompt_embeds.repeat(1, 1, 1).view(bs_embed, seq_len, -1)
-        pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, 1).view(bs_embed, -1)
+        if len(prompt_embeds_list) > 1 and pooled_prompt_embeds is not None:
+            pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, 1).view(bs_embed, -1)
 
         self._embeds = prompt_embeds
         self._pooled_embeds = pooled_prompt_embeds
