@@ -51,6 +51,10 @@ class StableDiffusionBase:
     def get_lcm_adapter_id(self):
         raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
+    @staticmethod
+    def get_prompt_class():
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
     def configure_pipeline(self, lcm):
         self.pipe = self.load_pipeline()
         self.setup_scheduler(self.pipe, lcm)
@@ -84,7 +88,8 @@ class StableDiffusionBase:
         )
         with torch.inference_mode():
             for _ in [1, 2]:
-                prompt = Prompt(self.get_tokenizers(), self.get_text_encoders(), "The cat in the hat is fat", self.n_random_tokens, self.batch_size)
+                prompt_class = self.get_prompt_class()
+                prompt = prompt_class(self.get_tokenizers(), self.get_text_encoders(), "The cat in the hat is fat", self.n_random_tokens, self.batch_size)
                 prompt.prepare()
                 self.pipe(
                     prompt_embeds=prompt.embeds,
@@ -111,7 +116,8 @@ class StableDiffusionBase:
     def generate_images(self, initial_text):
         processed_images = []
         for idx in range(self.batch_count):
-            prompt = Prompt(
+            prompt_class = self.get_prompt_class()
+            prompt = prompt_class(
                 self.get_tokenizers(),
                 self.get_text_encoders(),
                 self.pipe.unet,

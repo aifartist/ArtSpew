@@ -1,3 +1,4 @@
+from src.prompt_sdxl import PromptSDXL
 from src.stable_diffusion_base import StableDiffusionBase
 from diffusers import StableDiffusionXLPipeline, AutoPipelineForText2Image
 import torch
@@ -35,3 +36,7 @@ class StableDiffusionSDXL(StableDiffusionBase):
     
     def get_text_encoders(self):
         return [self.pipe.text_encoder, self.pipe.text_encoder_2]
+
+    @staticmethod
+    def get_prompt_class():
+        return PromptSDXL

@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 PREPARATION_MESSAGE = "Run self.prepare() first."
+NOT_IMPLEMENTED_MESSAGE = "This method must be implemented in a subclass."
 
 
 class Prompt:
@@ -77,6 +78,7 @@ class Prompt:
         pooled_prompt_embeds_list = []
         text_inputs_list = []
 
+        # Tokenize and encode the prompt with each of the encoders
         for tokenizer, text_encoder in zip(self._tokenizers, self._text_encoders):
             text_inputs = self._tokenize_prompt(initial_text_list)
             text_inputs_list.append(text_inputs)
@@ -89,6 +91,13 @@ class Prompt:
             prompt_embeds, pooled_prompt_embeds = self._encode_text(text_encoder, text_inputs.input_ids)
             prompt_embeds_list.append(prompt_embeds)
             pooled_prompt_embeds_list.append(pooled_prompt_embeds)
+
+        self._logger.debug("Prompt embeddings [0] shape: " + str(prompt_embeds_list[0].shape))
+        if len(prompt_embeds_list) > 1:
+            self._logger.debug("Prompt embeddings [1] shape: " + str(prompt_embeds_list[1].shape))
+        self._logger.debug("Pooled prompt embeddings [0] shape: " + str(pooled_prompt_embeds_list[0].shape))
+        if len(prompt_embeds_list) > 1:
+            self._logger.debug("Pooled prompt embeddings [1] shape: " + str(pooled_prompt_embeds_list[1].shape))
 
         if prompt_embeds is None:
             raise ValueError("Prompt embeddings must not be None.")
@@ -115,6 +124,10 @@ class Prompt:
 
     # Private methods ##################################################################################################
 
+    @staticmethod
+    def _get_hidden_state(prompt_embeds):
+        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+
     def _generate_random_token(self):
         while True:
             token_id = torch.randint(low=0, high=self._vocab_size, size=(1,), dtype=torch.int32).item()
@@ -128,9 +141,9 @@ class Prompt:
                 random_tokens[i, j] = self._generate_random_token()
         return random_tokens
 
-    def _tokenize_prompt(self, prompt):
+    def _tokenize_prompt(self, prompt_text):
         return self._tokenizers[0](
-            prompt,
+            prompt_text,
             padding="max_length",
             max_length=self._tokenizers[0].model_max_length,
             truncation=True,
@@ -148,9 +161,8 @@ class Prompt:
             input_ids[i][1 + prompt_length + n_random_tokens] = self._tokenizers[0].eos_token_id
         return input_ids
 
-    @staticmethod
-    def _encode_text(text_encoder, text_input_ids):
+    def _encode_text(self, text_encoder, text_input_ids):
         prompt_embeds = text_encoder(text_input_ids.to('cuda'), output_hidden_states=True)
         pooled_prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.hidden_states[-2]  # Use the penultimate layer
+        prompt_embeds = self._get_hidden_state(prompt_embeds)
         return prompt_embeds, pooled_prompt_embeds
