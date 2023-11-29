@@ -7,30 +7,36 @@ from diffusers import (
 )
 
 from src.image import Image
-from src.prompt import Prompt
 
 NOT_IMPLEMENTED_MESSAGE = "This method should be implemented in subclasses."
 
 
 class StableDiffusionBase:
 
-    def __init__(self, model_id, tiny, lcm, width, height, seed, batch_count, batch_size, n_random_tokens, n_steps, guidance, torch_compile):
-        self.logger = logging.getLogger("ArtSpew")
-        self.model_id = model_id
-        self.width = width
-        self.height = height
-        self.seed = seed
-        self.batch_size = batch_size
-        self.batch_count = batch_count
-        self.n_random_tokens = n_random_tokens
-        self.n_steps = n_steps
-        self.cfg_scale = guidance
+    def __init__(self, **kwargs):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.pipe = None
 
-        self.configure_pipeline(lcm)
-        if tiny:
+        self.model_id = kwargs.pop('model_id')
+        self.tiny_vae = kwargs.pop('tiny_vae')
+        self.lcm = kwargs.pop('lcm')
+        self.width = kwargs.pop('width')
+        self.height = kwargs.pop('height')
+        self.seed = kwargs.pop('seed')
+        self.batch_count = kwargs.pop('batch_count')
+        self.batch_size = kwargs.pop('batch_size')
+        self.n_random_tokens = kwargs.pop('n_random_tokens')
+        self.n_steps = kwargs.pop('n_steps')
+        self.guidance_scale = kwargs.pop('guidance_scale')
+        self.torch_compile = kwargs.pop('torch_compile')
+
+        if len(kwargs) > 0:
+            raise ValueError(f"Unknown arguments: {kwargs}")
+
+        self.configure_pipeline(self.lcm)
+        if self.tiny_vae:
             self.load_tiny_vae()
-        if torch_compile:
+        if self.torch_compile:
             self.setup_torch_compilation()
 
     def load_pipeline(self):
@@ -132,7 +138,7 @@ class StableDiffusionBase:
                 num_inference_steps=self.n_steps,
                 prompt_embeds=prompt.embeds,
                 pooled_prompt_embeds=prompt.pooled_embeds,
-                guidance_scale=self.cfg_scale,
+                guidance_scale=self.guidance_scale,
                 lcm_origin_steps=50,
                 output_type="pil",
                 return_dict=False
@@ -141,7 +147,7 @@ class StableDiffusionBase:
                 settings = {
                     "steps": self.n_steps,
                     "sampler": "Euler a",
-                    "cfg_scale": self.cfg_scale,
+                    "cfg_scale": self.guidance_scale,
                     "seed": self.seed,
                     "width": self.width,
                     "height": self.height,
