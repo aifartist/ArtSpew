@@ -10,8 +10,8 @@ from pathvalidate import sanitize_filename
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_N_RANDOM_TOKENS = 5
-DEFAULT_BATCH_COUNT = 1
-DEFAULT_BATCH_SIZE = 1
+DEFAULT_BATCH_COUNT = 10
+DEFAULT_BATCH_SIZE = 2
 DEFAULT_LCM = True
 DEFAULT_SEED = -1
 DEFAULT_TINY_VAE = False

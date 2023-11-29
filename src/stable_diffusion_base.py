@@ -119,7 +119,7 @@ class StableDiffusionBase:
         self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
         self.pipe.vae = self.pipe.vae.cuda()
 
-    def generate_images(self, initial_text):
+    def generate_images(self, initial_text = ''):
         processed_images = []
         for idx in range(self.batch_count):
             prompt_class = self.get_prompt_class()
