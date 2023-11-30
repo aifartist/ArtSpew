@@ -42,15 +42,15 @@ def parse_arguments():
                         help='Specify the input file')
     parser.add_argument('-p', '--prompt', type=str,
                         help='Specify the start of the prompt')
-    parser.add_argument('-w', '--width', type=int, default=DEFAULT_WIDTH,
+    parser.add_argument('-x', '--width', type=int, default=DEFAULT_WIDTH,
                         help='Image width, -1 for auto')
-    parser.add_argument('-h', '--height', type=int, default=DEFAULT_HEIGHT,
+    parser.add_argument('-y', '--height', type=int, default=DEFAULT_HEIGHT,
                         help='Image height, -1 for auto')
     parser.add_argument('-n', '--number-of-images', type=int, default=DEFAULT_BATCH_COUNT,
                         help='Number of batches to do')
     parser.add_argument('-b', '--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
                         help='Batch Size')
-    parser.add_argument('-s', '--n_steps', type=int, default=DEFAULT_STEPS,
+    parser.add_argument('-s', '--steps', type=int, default=DEFAULT_STEPS,
                         help='Number of inference steps, -1 for auto')
     parser.add_argument('-r', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
                         help='Number of random tokens added')
@@ -161,7 +161,7 @@ def main():
     logger = logging.getLogger("ArtSpew")
 
     logger.info(
-        f"Generating {args.batch_count*args.batch_size} images with {args.steps} steps. "
+        f"Generating {args.number_of_images*args.batch_size} images with {args.steps} steps. "
         "It can take a few minutes to download the model the very first run. "
         "After that it can take 10s of seconds to load the stable diffusion model. "
     )
@@ -174,7 +174,7 @@ def main():
         width=args.width,
         height=args.height,
         seed=args.seed,
-        batch_count=args.batch_count,
+        batch_count=args.number_of_images,
         batch_size=args.batch_size,
         n_random_tokens=args.random_tokens,
         n_steps=args.steps,
