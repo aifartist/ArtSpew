@@ -35,10 +35,10 @@ class StableDiffusionSD15(StableDiffusionBase):
         return "sd15-"
     
     def get_tokenizers(self):
-        return [self.pipe.tokenizer]
+        return [self._pipe.tokenizer]
     
     def get_text_encoders(self):
-        return [self.pipe.text_encoder]
+        return [self._pipe.text_encoder]
 
     @staticmethod
     def get_prompt_class():

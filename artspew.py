@@ -18,9 +18,9 @@ MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_N_RANDOM_TOKENS = 5
 DEFAULT_BATCH_COUNT = 32
 DEFAULT_BATCH_SIZE = 1
-DEFAULT_LCM = True
+DEFAULT_NO_LCM = False
 DEFAULT_SEED = -1
-DEFAULT_TINY_VAE = True
+DEFAULT_NO_TINY_VAE = False
 DEFAULT_TORCH_COMPILE = False
 
 DEFAULT_STEPS = -1
@@ -52,17 +52,17 @@ def parse_arguments():
                         help='Image width, -1 for auto')
     parser.add_argument('-y', '--height', type=int, default=DEFAULT_HEIGHT,
                         help='Image height, -1 for auto')
-    parser.add_argument('-n', '--number-of-images', type=int, default=DEFAULT_BATCH_COUNT,
+    parser.add_argument('-c', '--batch-count', type=int, default=DEFAULT_BATCH_COUNT,
                         help='Number of batches to do')
     parser.add_argument('-b', '--batch-size', type=int, default=DEFAULT_BATCH_SIZE,
                         help='Batch Size')
     parser.add_argument('-s', '--steps', type=int, default=DEFAULT_STEPS,
                         help='Number of inference steps, -1 for auto')
-    parser.add_argument('-r', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
+    parser.add_argument('-n', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
                         help='Number of random tokens added')
-    parser.add_argument('--lcm', action='store_true',
+    parser.add_argument('--no-lcm', action='store_true',
                         help='Use LCM')
-    parser.add_argument('--tiny-vae', action='store_true',
+    parser.add_argument('--no-tiny-vae', action='store_true',
                         help='Use the tiny VAE')
     parser.add_argument('-g', '--guidance', type=float, default=DEFAULT_GUIDANCE,
                         help='Guidance value, -1 for auto')
@@ -90,12 +90,13 @@ class ArtSpew:
         self.model_type = None
 
         # Private properties.
+        self._logger = logging.getLogger(self.__class__.__name__)
         self._sd = None
         self._xl = kwargs.pop('xl', False)
 
         model_id = kwargs.pop('model_id', 'auto')
-        tiny_vae = kwargs.pop('tiny_vae', DEFAULT_TINY_VAE)
-        lcm = kwargs.pop('lcm', DEFAULT_LCM)
+        tiny_vae = kwargs.pop('tiny_vae', DEFAULT_NO_TINY_VAE)
+        lcm = kwargs.pop('lcm', DEFAULT_NO_LCM)
         width = kwargs.pop('width', DEFAULT_WIDTH)
         height = kwargs.pop('height', DEFAULT_HEIGHT)
         seed = kwargs.pop('seed', DEFAULT_SEED)
@@ -171,23 +172,16 @@ def main():
         logging.basicConfig(level=logging.ERROR)
     else:
         logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("ArtSpew")
-
-    logger.info(
-        f"Generating {args.number_of_images*args.batch_size} images with {args.steps} steps. "
-        "It can take a few minutes to download the model the very first run. "
-        "After that it can take 10s of seconds to load the stable diffusion model. "
-    )
 
     artspew = ArtSpew(
         xl=args.xl,
         model_id=args.model_id,
-        tiny_vae=args.tiny_vae,
-        lcm=args.lcm,
+        tiny_vae=not args.no_tiny_vae,
+        lcm=not args.no_lcm,
         width=args.width,
         height=args.height,
         seed=args.seed,
-        batch_count=args.number_of_images,
+        batch_count=args.batch_count,
         batch_size=args.batch_size,
         n_random_tokens=args.random_tokens,
         n_steps=args.steps,

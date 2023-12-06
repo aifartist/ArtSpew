@@ -14,9 +14,7 @@ NOT_IMPLEMENTED_MESSAGE = "This method should be implemented in subclasses."
 class StableDiffusionBase:
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.pipe = None
-
+        # Public properties.
         self.model_id = kwargs.pop('model_id')
         self.tiny_vae = kwargs.pop('tiny_vae')
         self.lcm = kwargs.pop('lcm')
@@ -29,6 +27,10 @@ class StableDiffusionBase:
         self.n_steps = kwargs.pop('n_steps')
         self.guidance_scale = kwargs.pop('guidance_scale')
         self.torch_compile = kwargs.pop('torch_compile')
+
+        # Private properties.
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._pipe = None
 
         if len(kwargs) > 0:
             raise ValueError(f"Unknown arguments: {kwargs}")
@@ -62,13 +64,13 @@ class StableDiffusionBase:
         raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
     def configure_pipeline(self, lcm):
-        self.pipe = self.load_pipeline()
-        self.setup_scheduler(self.pipe, lcm)
-        self.configure_memory_format(self.pipe)
+        self._pipe = self.load_pipeline()
+        self.setup_scheduler(self._pipe, lcm)
+        self.configure_memory_format(self._pipe)
 
     def setup_scheduler(self, pipe, lcm):
         if lcm:
-            self.logger.info("Using LCM.")
+            self._logger.info("Using LCM.")
             pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
             self.load_and_fuse_lcm()
         else:
@@ -80,13 +82,13 @@ class StableDiffusionBase:
         pipe.unet.to(memory_format=torch.channels_last)
 
     def setup_torch_compilation(self):
-        self.pipe.text_encoder = torch.compile(self.pipe.text_encoder, mode='max-autotune')
-        self.pipe.unet = torch.compile(self.pipe.unet, mode='max-autotune')
-        self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
+        self._pipe.text_encoder = torch.compile(self._pipe.text_encoder, mode='max-autotune')
+        self._pipe.unet = torch.compile(self._pipe.unet, mode='max-autotune')
+        self._pipe.vae = torch.compile(self._pipe.vae, mode='max-autotune')
         self.perform_warmup()
 
     def perform_warmup(self):
-        self.logger.info(
+        self._logger.info(
             "Starting warmup generation of two images. "
             "If using compile() and this is the first run it will add a number of minutes of extra time before it starts generating. "
             "Once the compile is done for a particular batch size there will only be something like a 35 seconds delay on a fast system each time you run after this. "
@@ -97,7 +99,7 @@ class StableDiffusionBase:
                 prompt_class = self.get_prompt_class()
                 prompt = prompt_class(self.get_tokenizers(), self.get_text_encoders(), "The cat in the hat is fat", self.n_random_tokens, self.batch_size)
                 prompt.prepare()
-                self.pipe(
+                self._pipe(
                     prompt_embeds=prompt.embeds,
                     pooled_prompt_embeds=prompt.pooled_embeds,
                     width=self.width,
@@ -111,27 +113,32 @@ class StableDiffusionBase:
 
     def load_and_fuse_lcm(self):
         adapter_id = self.get_lcm_adapter_id()
-        self.pipe.load_lora_weights(adapter_id)
-        self.pipe.fuse_lora()
+        self._pipe.load_lora_weights(adapter_id)
+        self._pipe.fuse_lora()
 
     def load_tiny_vae(self):
         vae_model_id = self.get_tiny_vae_model_id()
-        self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
-        self.pipe.vae = self.pipe.vae.cuda()
+        self._pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
+        self._pipe.vae = self._pipe.vae.cuda()
 
     def create_generator(self, initial_text=''):
+        self._logger.info(
+            f"Generating {self.batch_count * self.batch_size} images with {self.n_steps} steps. "
+            "It can take a few minutes to download the model the very first run. "
+            "After that it can take 10s of seconds to load the stable diffusion model. "
+        )
         for idx in range(self.batch_count):
             prompt_class = self.get_prompt_class()
             prompt = prompt_class(
                 self.get_tokenizers(),
                 self.get_text_encoders(),
-                self.pipe.unet,
+                self._pipe.unet,
                 initial_text,
                 self.n_random_tokens,
                 self.batch_size
             )
             prompt.prepare()
-            images = self.pipe(
+            images = self._pipe(
                 width=self.width,
                 height=self.height,
                 num_inference_steps=self.n_steps,

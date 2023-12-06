@@ -34,10 +34,10 @@ class StableDiffusionSDXL(StableDiffusionBase):
         return "sdxl-"
 
     def get_tokenizers(self):
-        return [self.pipe.tokenizer, self.pipe.tokenizer_2]
+        return [self._pipe.tokenizer, self._pipe.tokenizer_2]
     
     def get_text_encoders(self):
-        return [self.pipe.text_encoder, self.pipe.text_encoder_2]
+        return [self._pipe.text_encoder, self._pipe.text_encoder_2]
 
     @staticmethod
     def get_prompt_class():
