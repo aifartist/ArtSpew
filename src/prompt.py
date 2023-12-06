@@ -9,14 +9,14 @@ NOT_IMPLEMENTED_MESSAGE = "This method must be implemented in a subclass."
 class Prompt:
 
     def __init__(self, tokenizers: list, text_encoders: list, unet, initial_text, n_random_tokens, batch_size: int = 1):
-        # Public properties
+        # Public properties.
         self.initial_text = initial_text
         if initial_text is None:
             self.initial_text = ''
         self.n_random_tokens = n_random_tokens
         self.batch_size = batch_size
 
-        # Private properties
+        # Private properties.
         self._logger = logging.getLogger(__name__)
         self._tokenizers = tokenizers
         self._text_encoders = text_encoders

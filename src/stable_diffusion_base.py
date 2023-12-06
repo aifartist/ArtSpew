@@ -119,8 +119,7 @@ class StableDiffusionBase:
         self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
         self.pipe.vae = self.pipe.vae.cuda()
 
-    def generate_images(self, initial_text=''):
-        processed_images = []
+    def create_generator(self, initial_text=''):
         for idx in range(self.batch_count):
             prompt_class = self.get_prompt_class()
             prompt = prompt_class(
@@ -153,6 +152,5 @@ class StableDiffusionBase:
                     "height": self.height,
                     "model_id": self.model_id
                 }
-                processed_images.append(Image(image, prompt.text[image_idx], settings))
-
-        return processed_images
+                processed_image = Image(image, prompt.text[image_idx], settings)
+                yield processed_image

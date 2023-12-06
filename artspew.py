@@ -16,11 +16,11 @@ torch.backends.cudnn.benchmark_limit = 4
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_N_RANDOM_TOKENS = 5
-DEFAULT_BATCH_COUNT = 10
-DEFAULT_BATCH_SIZE = 2
+DEFAULT_BATCH_COUNT = 32
+DEFAULT_BATCH_SIZE = 1
 DEFAULT_LCM = True
 DEFAULT_SEED = -1
-DEFAULT_TINY_VAE = False
+DEFAULT_TINY_VAE = True
 DEFAULT_TORCH_COMPILE = False
 
 DEFAULT_STEPS = -1
@@ -81,14 +81,18 @@ def parse_arguments():
 
 class ArtSpew:
 
+    # Model types.
     SD15 = 'sd15'
     SDXL = 'sdxl'
 
     def __init__(self, **kwargs):
-        self.sd = None
+        # Public properties.
         self.model_type = None
 
+        # Private properties.
+        self._sd = None
         self._xl = kwargs.pop('xl', False)
+
         model_id = kwargs.pop('model_id', 'auto')
         tiny_vae = kwargs.pop('tiny_vae', DEFAULT_TINY_VAE)
         lcm = kwargs.pop('lcm', DEFAULT_LCM)
@@ -127,7 +131,7 @@ class ArtSpew:
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
 
-        self.sd = sd_class(
+        self._sd = sd_class(
             model_id=model_id,
             tiny_vae=tiny_vae,
             lcm=lcm,
@@ -141,6 +145,9 @@ class ArtSpew:
             guidance_scale=guidance_scale,
             torch_compile=torch_compile
         )
+
+    def create_generator(self, prompt):
+        return self._sd.create_generator(prompt)
 
     def _detect_model_type(self, model_id):
         # Examine the model to determine the model type?
@@ -192,17 +199,17 @@ def main():
     if not os.path.exists('spew'):
         os.makedirs('spew')
 
-    files = [entry.name for entry in os.scandir('spew') if entry.name.startswith(artspew.sd.get_filename_prefix())]
+    files = [entry.name for entry in os.scandir('spew') if entry.name.startswith(artspew._sd.get_filename_prefix())]
 
     if files:
         sorted_files = sorted(files, key=lambda x: int(x.split('-')[1]))
         sequence_number = int(sorted_files[-1].split('-')[1])
 
-    images = artspew.sd.generate_images(args.prompt)
-    for idx, image in enumerate(images):
+    image_generator = artspew.create_generator(args.prompt)
+    for image in image_generator:
         sequence_number += 1
         safe_prompt = sanitize_filename(image.prompt_text)
-        image.save(f"spew/{artspew.sd.get_filename_prefix()}{sequence_number:09d}-{idx:02d}-{safe_prompt}.jpg")
+        image.save(f"spew/{artspew._sd.get_filename_prefix()}{sequence_number:09d}-{safe_prompt}.jpg")
 
 
 if __name__ == "__main__":
