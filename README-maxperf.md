@@ -1,3 +1,7 @@
+This demos close to 150 images per second on a 4090.
+I can do faster but this should be good enough to prove
+the perf I can get.
+
 Presuming you have ArtSpew installed:
 
     pip3 install -r req-maxperf.txt
