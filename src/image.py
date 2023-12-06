@@ -6,9 +6,10 @@ import piexif.helper
 
 class Image:
 
-    def __init__(self, image: PILImage, prompt_text, settings: dict):
+    def __init__(self, image: PILImage, prompt_text, filename_prefix, settings: dict):
         self.image = image
         self.prompt_text = prompt_text
+        self.filename_prefix = filename_prefix
         self.settings = settings
         try:
             self.geninfo = f"{prompt_text}\nSteps: {settings['steps']}, Sampler: {settings['sampler']}, CFG scale: {settings['cfg_scale']}, Seed: {settings['seed']}, Size: {settings['width']}x{settings['height']}, Model: {settings['model_id']}"

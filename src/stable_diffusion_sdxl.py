@@ -6,13 +6,15 @@ import torch
 
 class StableDiffusionSDXL(StableDiffusionBase):
     def load_pipeline(self):
+        # Is it a local file?
         if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
             pipe = StableDiffusionXLPipeline.from_single_file(
                 self.model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
                 safety_checker=None,
-                requires_safety_checker=False)
+                requires_safety_checker=False
+            )
         else:
             pipe = AutoPipelineForText2Image.from_pretrained(
                 self.model_id,
@@ -32,10 +34,10 @@ class StableDiffusionSDXL(StableDiffusionBase):
         return "sdxl-"
 
     def get_tokenizers(self):
-        return [self.pipe.tokenizer, self.pipe.tokenizer_2]
+        return [self._pipe.tokenizer, self._pipe.tokenizer_2]
     
     def get_text_encoders(self):
-        return [self.pipe.text_encoder, self.pipe.text_encoder_2]
+        return [self._pipe.text_encoder, self._pipe.text_encoder_2]
 
     @staticmethod
     def get_prompt_class():

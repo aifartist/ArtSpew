@@ -35,7 +35,7 @@ pip3 install -r requirements.txt
 
 Try the following for a first run:
 ```
-python3 artspew.py --prompt "crazy cat"
+python3 artspew.py --p "crazy cat"
 ```
 
 It should be super fast. 16 to 29 images per second on a 4090 depending on the number of steps and other options. Use --xl to use the XL model instead of 1.5.
@@ -47,20 +47,17 @@ The new images with appear in the directory named **spew/**.  Even at nSteps=4 t
 
 Then try to pick a subject like "Mutant kitty monsters with glowing eyes, H.R.Giger style" and gen random versions of it.  THe command below is doing 10 inference steps and appending 5 random tokens to the prompt.
 
-> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -c 32 -b 2 -s 10 -r 5 --lcm --tiny-vae -g 0
+> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -b 2 -s 10
 
 ### As a python module
 
 ```
 from artspew import ArtSpew
 artspew = ArtSpew()
-images = artspew.sd.generate_images("crazy cat")
-```
-
-Images will contain a list of PIL images wrapped in our Image class.  You can save them to disk with:
-
-```
-for idx, image in enumerate(images):
+image_generator = artspew.create_generator("crazy cat")
+idx = -1
+for image in image_generator:
+    idx += 1
     image.save(f"{idx}.jpg")
 ```
 
