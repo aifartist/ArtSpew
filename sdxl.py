@@ -18,7 +18,7 @@ torch.set_grad_enabled(False)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.benchmark_limit = 0
+torch.backends.cudnn.benchmark_limit = 4
 
 def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     if nTokens < 0 or nTokens > 75:
@@ -221,6 +221,7 @@ if __name__ == "__main__":
             variant="fp16",
             safety_checker=None,
             requires_safety_checker=False)
+
     if lcm:
         pipe.scheduler = LCMScheduler.from_config(pipe.scheduler.config)
     else:

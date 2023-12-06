@@ -18,7 +18,7 @@ torch.set_grad_enabled(False)
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.benchmark_limit = 0
+torch.backends.cudnn.benchmark_limit = 4
 
 def dwencode(pipe, prompt: str, batch_size: int, nTokens: int):
     if nTokens < 0 or nTokens > 75:
@@ -198,9 +198,9 @@ if __name__ == "__main__":
             args.model_id,
             torch_dtype=torch.float16,
             variant="fp16",
-            load_safety_checker=False,)
-            #safety_checker=None,
-            #requires_safety_checker=False)
+            load_safety_checker=False,
+            safety_checker=None,
+            requires_safety_checker=False)
     else:
         pipe = StableDiffusionPipeline.from_pretrained(
             args.model_id,
