@@ -7,6 +7,7 @@ from diffusers import (
 )
 
 from src.image import Image
+from src.timer import Timer
 
 NOT_IMPLEMENTED_MESSAGE = "This method should be implemented in subclasses."
 
@@ -127,37 +128,39 @@ class StableDiffusionBase:
             "It can take a few minutes to download the model the very first run. "
             "After that it can take 10s of seconds to load the stable diffusion model. "
         )
-        for idx in range(self.batch_count):
-            prompt_class = self.get_prompt_class()
-            prompt = prompt_class(
-                self.get_tokenizers(),
-                self.get_text_encoders(),
-                self._pipe.unet,
-                initial_text,
-                self.n_random_tokens,
-                self.batch_size
-            )
-            prompt.prepare()
-            images = self._pipe(
-                width=self.width,
-                height=self.height,
-                num_inference_steps=self.n_steps,
-                prompt_embeds=prompt.embeds,
-                pooled_prompt_embeds=prompt.pooled_embeds,
-                guidance_scale=self.guidance_scale,
-                lcm_origin_steps=50,
-                output_type="pil",
-                return_dict=False
-            )[0]
-            for image_idx, image in enumerate(images):
-                settings = {
-                    "steps": self.n_steps,
-                    "sampler": "Euler a",
-                    "cfg_scale": self.guidance_scale,
-                    "seed": self.seed,
-                    "width": self.width,
-                    "height": self.height,
-                    "model_id": self.model_id
-                }
-                processed_image = Image(image, prompt.text[image_idx], settings)
-                yield processed_image
+        with Timer("All batches"):
+            for idx in range(self.batch_count):
+                prompt_class = self.get_prompt_class()
+                prompt = prompt_class(
+                    self.get_tokenizers(),
+                    self.get_text_encoders(),
+                    self._pipe.unet,
+                    initial_text,
+                    self.n_random_tokens,
+                    self.batch_size
+                )
+                prompt.prepare()
+                with Timer(f"Batch {idx + 1}"):
+                    images = self._pipe(
+                        width=self.width,
+                        height=self.height,
+                        num_inference_steps=self.n_steps,
+                        prompt_embeds=prompt.embeds,
+                        pooled_prompt_embeds=prompt.pooled_embeds,
+                        guidance_scale=self.guidance_scale,
+                        lcm_origin_steps=50,
+                        output_type="pil",
+                        return_dict=False
+                    )[0]
+                for image_idx, image in enumerate(images):
+                    settings = {
+                        "steps": self.n_steps,
+                        "sampler": "Euler a",
+                        "cfg_scale": self.guidance_scale,
+                        "seed": self.seed,
+                        "width": self.width,
+                        "height": self.height,
+                        "model_id": self.model_id
+                    }
+                    processed_image = Image(image, prompt.text[image_idx], settings)
+                    yield processed_image
