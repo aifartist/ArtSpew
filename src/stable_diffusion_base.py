@@ -17,17 +17,17 @@ class StableDiffusionBase:
     def __init__(self, **kwargs):
         # Public properties.
         self.model_id = kwargs.pop('model_id')
-        self.tiny_vae = kwargs.pop('tiny_vae')
-        self.lcm = kwargs.pop('lcm')
-        self.width = kwargs.pop('width')
-        self.height = kwargs.pop('height')
-        self.seed = kwargs.pop('seed')
-        self.batch_count = kwargs.pop('batch_count')
-        self.batch_size = kwargs.pop('batch_size')
-        self.n_random_tokens = kwargs.pop('n_random_tokens')
-        self.n_steps = kwargs.pop('n_steps')
-        self.guidance_scale = kwargs.pop('guidance_scale')
-        self.torch_compile = kwargs.pop('torch_compile')
+        self.tiny_vae = kwargs.pop('tiny_vae', True)
+        self.lcm = kwargs.pop('lcm', True)
+        self.width = kwargs.pop('width', 512)
+        self.height = kwargs.pop('height', 512)
+        self.seed = kwargs.pop('seed', 437483274)
+        self.batch_count = kwargs.pop('batch_count', 10)
+        self.batch_size = kwargs.pop('batch_size', 1)
+        self.n_random_tokens = kwargs.pop('n_random_tokens', 5)
+        self.n_steps = kwargs.pop('n_steps', 8)
+        self.guidance_scale = kwargs.pop('guidance_scale', 0)
+        self.torch_compile = kwargs.pop('torch_compile', False)
 
         # Private properties.
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -122,9 +122,23 @@ class StableDiffusionBase:
         self._pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
         self._pipe.vae = self._pipe.vae.cuda()
 
-    def create_generator(self, initial_text=''):
+    def create_generator(self, initial_text='', **kwargs):
+        """ Creates a generator that generates and yields images. You can override some of the default parameters with kwargs """
+
+        width = kwargs.pop('width', self.width)
+        height = kwargs.pop('height', self.height)
+        seed = kwargs.pop('seed', self.seed)
+        batch_count = kwargs.pop('batch_count', self.batch_count)
+        batch_size = kwargs.pop('batch_size', self.batch_size)
+        n_random_tokens = kwargs.pop('n_random_tokens', self.n_random_tokens)
+        n_steps = kwargs.pop('n_steps', self.n_steps)
+        guidance_scale = kwargs.pop('guidance_scale', self.guidance_scale)
+
+        if len(kwargs) > 0:
+            raise ValueError(f"Unknown arguments: {kwargs}")
+
         self._logger.info(
-            f"Generating {self.batch_count * self.batch_size} images with {self.n_steps} steps. "
+            f"Generating {batch_count * batch_size} images with {n_steps} steps. "
             "It can take a few minutes to download the model the very first run. "
             "After that it can take 10s of seconds to load the stable diffusion model. "
         )
@@ -136,18 +150,19 @@ class StableDiffusionBase:
                     self.get_text_encoders(),
                     self._pipe.unet,
                     initial_text,
-                    self.n_random_tokens,
-                    self.batch_size
+                    n_random_tokens,
+                    batch_size
                 )
                 prompt.prepare()
                 with Timer(f"Batch {idx + 1}"):
                     images = self._pipe(
-                        width=self.width,
-                        height=self.height,
-                        num_inference_steps=self.n_steps,
+                        seed=seed,
+                        width=width,
+                        height=height,
+                        num_inference_steps=n_steps,
                         prompt_embeds=prompt.embeds,
                         pooled_prompt_embeds=prompt.pooled_embeds,
-                        guidance_scale=self.guidance_scale,
+                        guidance_scale=guidance_scale,
                         lcm_origin_steps=50,
                         output_type="pil",
                         return_dict=False

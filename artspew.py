@@ -147,8 +147,8 @@ class ArtSpew:
             torch_compile=torch_compile
         )
 
-    def create_generator(self, prompt):
-        return self._sd.create_generator(prompt)
+    def create_generator(self, prompt, **kwargs):
+        return self._sd.create_generator(prompt, **kwargs)
 
     def get_filename_prefix(self):
         return self._sd.get_filename_prefix()
