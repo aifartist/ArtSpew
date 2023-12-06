@@ -150,6 +150,9 @@ class ArtSpew:
     def create_generator(self, prompt):
         return self._sd.create_generator(prompt)
 
+    def get_filename_prefix(self):
+        return self._sd.get_filename_prefix()
+
     def _detect_model_type(self, model_id):
         # Examine the model to determine the model type?
         # For now, just read the xl argument.
@@ -193,7 +196,7 @@ def main():
     if not os.path.exists('spew'):
         os.makedirs('spew')
 
-    files = [entry.name for entry in os.scandir('spew') if entry.name.startswith(artspew._sd.get_filename_prefix())]
+    files = [entry.name for entry in os.scandir('spew') if entry.name.startswith(artspew.get_filename_prefix())]
 
     if files:
         sorted_files = sorted(files, key=lambda x: int(x.split('-')[1]))
@@ -203,7 +206,7 @@ def main():
     for image in image_generator:
         sequence_number += 1
         safe_prompt = sanitize_filename(image.prompt_text)
-        image.save(f"spew/{artspew._sd.get_filename_prefix()}{sequence_number:09d}-{safe_prompt}.jpg")
+        image.save(f"spew/{image.filename_prefix}{sequence_number:09d}-{safe_prompt}.jpg")
 
 
 if __name__ == "__main__":

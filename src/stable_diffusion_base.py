@@ -162,5 +162,5 @@ class StableDiffusionBase:
                         "height": self.height,
                         "model_id": self.model_id
                     }
-                    processed_image = Image(image, prompt.text[image_idx], settings)
+                    processed_image = Image(image, prompt.text[image_idx], self.get_filename_prefix(), settings)
                     yield processed_image
