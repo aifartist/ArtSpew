@@ -11,7 +11,9 @@ class StableDiffusionSD15(StableDiffusionBase):
                 self.model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
-                load_safety_checker=False
+                load_safety_checker=False,
+                safety_checker=None,
+                requires_safety_checker=False
             )
         else:
             pipe = StableDiffusionPipeline.from_pretrained(

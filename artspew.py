@@ -7,6 +7,12 @@ from src.stable_diffusion_sd15 import StableDiffusionSD15
 from src.stable_diffusion_sdxl import StableDiffusionSDXL
 from pathvalidate import sanitize_filename
 
+torch.set_grad_enabled(False)
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark_limit = 4
+
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_N_RANDOM_TOKENS = 5
