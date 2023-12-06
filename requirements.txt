@@ -16,7 +16,8 @@ PyYAML
 filelock
 numpy
 safetensors
-transformers
+transformers==4.35.2
 regex
 accelerate
 omegaconf
+lz4==4.3.2
