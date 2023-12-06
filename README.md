@@ -8,6 +8,7 @@ Tongue in cheek:
 In ancient granite Wikipedia carvings dated near the end of August 2022 Stable Diffusion was inscribed and human artists were no more. They were replaced by AI Artists typing words, getting the spelling right 2 out of 3 times and usually finding the "Generate" button.  Now, eons later, we are at a point where AI Artists will soon be replaced.  The dawn of ArtSpew is at hand.  Harnessing the magic of a random number generator you can excrete 1000 random images very quickly.
 
 ### NEW NEW NEW! Also look at README-maxperf.md after installing the following
+### TODO: Add the speed 150 images per second speed demo'd by maxperf to artspew.
 
 ### Setup Instructions - Linux centric
 ```
