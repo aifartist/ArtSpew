@@ -1,7 +1,7 @@
 wheel
 setuptools
 
-torch-2.1.1+cu121
+torch==2.1.1+cu121
 torchvision
 xformers
 diffusers
