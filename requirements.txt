@@ -21,4 +21,5 @@ regex
 accelerate
 omegaconf
 piexif
+olefile
 pathvalidate
