@@ -26,6 +26,10 @@ source venv/bin/activate
 # Install the required dependencies
 pip3 install -r requirements.txt
 ```
+### Windows
+```
+Please contribute Windows install instructions.
+```
 
 ## How to spew art with no discernible talent.  :-)
 
@@ -48,6 +52,8 @@ Where will your imagination take you?
 > Mutant kitty monsters with glowing eyes, H.R.Giger style
 
 remember to increase variety by using "-n" to add some random tokens to your prompt.  Use --xl if more quality is desired.  Do more steps using "-s" will also improve the results.
+
+FUTURE: While the "compile" feature adds a lot of speed it is painful to use unless you want to generate a huge number of images. Do not use unless you are familar with torch.compile().  My maxperf mentioned below uses a new compiler technology called stable-fast which is far better.  I will soon integrate it into the artspew program and DOUBLE your speed.
 
 # maxperf
 This is a GUI app which is crazy fast just to show how far we've come.  Don't complain about quality of something which came out days ago.  Read the README-maxperf.md for instructions to run it.
