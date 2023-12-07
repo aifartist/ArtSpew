@@ -46,10 +46,11 @@ to get the full usage.
 
 Where will your imagination take you?
 > Mutant kitty monsters with glowing eyes, H.R.Giger style
-remember to increase variety by using "-n" to add some random tokens to your prompt.
+
+remember to increase variety by using "-n" to add some random tokens to your prompt.  Use --xl if more quality is desired.  Do more steps using "-s" will also improve the results.
 
 # maxperf
-This is a GUI app which is crazy fast just to show how far we've come.  Don't complain about quality of something which came out days ago.  Read README-maxperf.md to instructions to run it.
+This is a GUI app which is crazy fast just to show how far we've come.  Don't complain about quality of something which came out days ago.  Read the README-maxperf.md for instructions to run it.
 
 
 ### As a python module
