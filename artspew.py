@@ -15,8 +15,8 @@ torch.backends.cudnn.benchmark_limit = 4
 
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
-DEFAULT_N_RANDOM_TOKENS = 5
-DEFAULT_BATCH_COUNT = 100
+DEFAULT_N_RANDOM_TOKENS = 0
+DEFAULT_BATCH_COUNT = 1
 DEFAULT_BATCH_SIZE = 1
 DEFAULT_NO_LCM = False
 DEFAULT_SEED = -1
