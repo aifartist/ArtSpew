@@ -16,7 +16,7 @@ torch.backends.cudnn.benchmark_limit = 4
 MODEL_ID_SD15 = 'runwayml/stable-diffusion-v1-5'
 MODEL_ID_SDXL = 'stabilityai/stable-diffusion-xl-base-1.0'
 DEFAULT_N_RANDOM_TOKENS = 5
-DEFAULT_BATCH_COUNT = 32
+DEFAULT_BATCH_COUNT = 100
 DEFAULT_BATCH_SIZE = 1
 DEFAULT_NO_LCM = False
 DEFAULT_SEED = -1
@@ -89,7 +89,7 @@ class ArtSpew:
         # Public properties.
         self.model_type = None
 
-        # Private properties.
+        # Protected properties.
         self._logger = logging.getLogger(self.__class__.__name__)
         self._sd = None
         self._xl = kwargs.pop('xl', False)
@@ -147,8 +147,8 @@ class ArtSpew:
             torch_compile=torch_compile
         )
 
-    def create_generator(self, prompt):
-        return self._sd.create_generator(prompt)
+    def create_generator(self, prompt, **kwargs):
+        return self._sd.create_generator(prompt, **kwargs)
 
     def get_filename_prefix(self):
         return self._sd.get_filename_prefix()
@@ -170,11 +170,14 @@ def main():
 
     # Setup Logger.
     if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        log_level = logging.DEBUG
     elif args.quiet:
-        logging.basicConfig(level=logging.ERROR)
+        log_level = logging.ERROR
     else:
-        logging.basicConfig(level=logging.INFO)
+        log_level = logging.INFO
+
+    # Configure the root logger
+    logging.basicConfig(level=log_level, format='%(message)s')
 
     artspew = ArtSpew(
         xl=args.xl,
