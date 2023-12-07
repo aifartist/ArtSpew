@@ -1,3 +1,4 @@
+import random
 import torch
 import logging
 from diffusers import (
@@ -16,30 +17,30 @@ class StableDiffusionBase:
 
     def __init__(self, **kwargs):
         # Public properties.
-        self.model_id = kwargs.pop('model_id')
-        self.tiny_vae = kwargs.pop('tiny_vae', True)
-        self.lcm = kwargs.pop('lcm', True)
+        self.pipe = None
         self.width = kwargs.pop('width', 512)
         self.height = kwargs.pop('height', 512)
-        self.seed = kwargs.pop('seed', 437483274)
+        self.seed = kwargs.pop('seed', None)
         self.batch_count = kwargs.pop('batch_count', 10)
         self.batch_size = kwargs.pop('batch_size', 1)
         self.n_random_tokens = kwargs.pop('n_random_tokens', 5)
         self.n_steps = kwargs.pop('n_steps', 8)
         self.guidance_scale = kwargs.pop('guidance_scale', 0)
-        self.torch_compile = kwargs.pop('torch_compile', False)
 
-        # Private properties.
+        # Protected properties.
         self._logger = logging.getLogger(self.__class__.__name__)
-        self._pipe = None
+        self._model_id = kwargs.pop('model_id')
+        self._tiny_vae = kwargs.pop('tiny_vae', True)
+        self._lcm = kwargs.pop('lcm', True)
+        self._torch_compile = kwargs.pop('torch_compile', False)
 
         if len(kwargs) > 0:
             raise ValueError(f"Unknown arguments: {kwargs}")
 
-        self.configure_pipeline(self.lcm)
-        if self.tiny_vae:
+        self.configure_pipeline(self._lcm)
+        if self._tiny_vae:
             self.load_tiny_vae()
-        if self.torch_compile:
+        if self._torch_compile:
             self.setup_torch_compilation()
 
     def load_pipeline(self):
@@ -65,9 +66,9 @@ class StableDiffusionBase:
         raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
     def configure_pipeline(self, lcm):
-        self._pipe = self.load_pipeline()
-        self.setup_scheduler(self._pipe, lcm)
-        self.configure_memory_format(self._pipe)
+        self.pipe = self.load_pipeline()
+        self.setup_scheduler(self.pipe, lcm)
+        self.configure_memory_format(self.pipe)
 
     def setup_scheduler(self, pipe, lcm):
         if lcm:
@@ -83,9 +84,9 @@ class StableDiffusionBase:
         pipe.unet.to(memory_format=torch.channels_last)
 
     def setup_torch_compilation(self):
-        self._pipe.text_encoder = torch.compile(self._pipe.text_encoder, mode='max-autotune')
-        self._pipe.unet = torch.compile(self._pipe.unet, mode='max-autotune')
-        self._pipe.vae = torch.compile(self._pipe.vae, mode='max-autotune')
+        self.pipe.text_encoder = torch.compile(self.pipe.text_encoder, mode='max-autotune')
+        self.pipe.unet = torch.compile(self.pipe.unet, mode='max-autotune')
+        self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
         self.perform_warmup()
 
     def perform_warmup(self):
@@ -100,7 +101,7 @@ class StableDiffusionBase:
                 prompt_class = self.get_prompt_class()
                 prompt = prompt_class(self.get_tokenizers(), self.get_text_encoders(), "The cat in the hat is fat", self.n_random_tokens, self.batch_size)
                 prompt.prepare()
-                self._pipe(
+                self.pipe(
                     prompt_embeds=prompt.embeds,
                     pooled_prompt_embeds=prompt.pooled_embeds,
                     width=self.width,
@@ -114,13 +115,13 @@ class StableDiffusionBase:
 
     def load_and_fuse_lcm(self):
         adapter_id = self.get_lcm_adapter_id()
-        self._pipe.load_lora_weights(adapter_id)
-        self._pipe.fuse_lora()
+        self.pipe.load_lora_weights(adapter_id)
+        self.pipe.fuse_lora()
 
     def load_tiny_vae(self):
         vae_model_id = self.get_tiny_vae_model_id()
-        self._pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
-        self._pipe.vae = self._pipe.vae.cuda()
+        self.pipe.vae = AutoencoderTiny.from_pretrained(vae_model_id, torch_device='cuda', torch_dtype=torch.float16)
+        self.pipe.vae = self.pipe.vae.cuda()
 
     def create_generator(self, initial_text='', **kwargs):
         """ Creates a generator that generates and yields images. You can override some of the default parameters with kwargs """
@@ -137,6 +138,11 @@ class StableDiffusionBase:
         if len(kwargs) > 0:
             raise ValueError(f"Unknown arguments: {kwargs}")
 
+        if seed is None:
+            seed = random.randint(0, 2147483647)
+
+        torch.manual_seed(seed)
+
         self._logger.info(
             f"Generating {batch_count * batch_size} images with {n_steps} steps. "
             "It can take a few minutes to download the model the very first run. "
@@ -148,15 +154,14 @@ class StableDiffusionBase:
                 prompt = prompt_class(
                     self.get_tokenizers(),
                     self.get_text_encoders(),
-                    self._pipe.unet,
+                    self.pipe.unet,
                     initial_text,
                     n_random_tokens,
                     batch_size
                 )
                 prompt.prepare()
-                with Timer(f"Batch {idx + 1}"):
-                    images = self._pipe(
-                        seed=seed,
+                with Timer(f"Batch {idx + 1}: {width}x{height}, steps={n_steps}, batch size={batch_size}"):
+                    images = self.pipe(
                         width=width,
                         height=height,
                         num_inference_steps=n_steps,
@@ -168,6 +173,7 @@ class StableDiffusionBase:
                         return_dict=False
                     )[0]
                 for image_idx, image in enumerate(images):
+                    self._logger.info(f"    {prompt.text[image_idx]}")
                     settings = {
                         "steps": self.n_steps,
                         "sampler": "Euler a",
@@ -175,7 +181,7 @@ class StableDiffusionBase:
                         "seed": self.seed,
                         "width": self.width,
                         "height": self.height,
-                        "model_id": self.model_id
+                        "model_id": self._model_id
                     }
                     processed_image = Image(image, prompt.text[image_idx], self.get_filename_prefix(), settings)
                     yield processed_image

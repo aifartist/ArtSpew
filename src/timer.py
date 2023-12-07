@@ -34,6 +34,6 @@ class Timer:
     def __exit__(self, exc_type, exc_value, traceback):
         elapsed = self.elapsed()
         if self.name:
-            self._logger.info(f"{self.name} took {elapsed}")
+            self._logger.info(f"{elapsed} {self.name}")
         else:
             self._logger.info(f"Elapsed time: {elapsed}")

@@ -16,7 +16,7 @@ class Prompt:
         self.n_random_tokens = n_random_tokens
         self.batch_size = batch_size
 
-        # Private properties.
+        # Protected properties.
         self._logger = logging.getLogger(__name__)
         self._tokenizers = tokenizers
         self._text_encoders = text_encoders
@@ -82,7 +82,7 @@ class Prompt:
         for tokenizer, text_encoder in zip(self._tokenizers, self._text_encoders):
             text_inputs = self._tokenize_prompt(initial_text_list)
             text_inputs_list.append(text_inputs)
-            prompt_length = self._find_prompt_length(text_inputs)
+            prompt_length = self._prompt_length_in_tokens(text_inputs)
 
             # Append random tokens to the user prompt if needed
             if self.n_random_tokens > 0:
@@ -106,7 +106,6 @@ class Prompt:
         for encoded_prompt in text_inputs_list[0].input_ids:
             decoded_prompt = self._tokenizers[0].decode(encoded_prompt, skip_special_tokens=True)
             decoded_prompts.append(decoded_prompt)
-            self._logger.info("Prompt: " + decoded_prompt)
 
         # Concatenate the prompt embeddings from the two encoders.
         if len(prompt_embeds_list) > 1:
@@ -150,7 +149,7 @@ class Prompt:
             return_tensors="pt",
         )
 
-    def _find_prompt_length(self, text_inputs):
+    def _prompt_length_in_tokens(self, text_inputs):
         return np.where(text_inputs.input_ids[0] == self._tokenizers[0].eos_token_id)[0][0] - 1
 
     def _append_random_tokens(self, input_ids, random_tokens, prompt_length, n_random_tokens):

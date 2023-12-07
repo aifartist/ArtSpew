@@ -6,9 +6,9 @@ import torch
 
 class StableDiffusionSD15(StableDiffusionBase):
     def load_pipeline(self):
-        if self.model_id.endswith('.safetensors') or self.model_id.endswith('.ckpt'):
+        if self._model_id.endswith('.safetensors') or self._model_id.endswith('.ckpt'):
             pipe = StableDiffusionPipeline.from_single_file(
-                self.model_id,
+                self._model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
                 load_safety_checker=False,
@@ -17,7 +17,7 @@ class StableDiffusionSD15(StableDiffusionBase):
             )
         else:
             pipe = StableDiffusionPipeline.from_pretrained(
-                self.model_id,
+                self._model_id,
                 torch_dtype=torch.float16,
                 variant="fp16",
                 safety_checker=None,
@@ -35,10 +35,10 @@ class StableDiffusionSD15(StableDiffusionBase):
         return "sd15-"
     
     def get_tokenizers(self):
-        return [self._pipe.tokenizer]
+        return [self.pipe.tokenizer]
     
     def get_text_encoders(self):
-        return [self._pipe.text_encoder]
+        return [self.pipe.text_encoder]
 
     @staticmethod
     def get_prompt_class():
