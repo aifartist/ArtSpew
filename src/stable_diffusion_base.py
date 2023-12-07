@@ -87,7 +87,7 @@ class StableDiffusionBase:
         self.pipe.text_encoder = torch.compile(self.pipe.text_encoder, mode='max-autotune')
         self.pipe.unet = torch.compile(self.pipe.unet, mode='max-autotune')
         self.pipe.vae = torch.compile(self.pipe.vae, mode='max-autotune')
-        self.perform_warmup()
+        # self.perform_warmup()
 
     def perform_warmup(self):
         self._logger.info(
