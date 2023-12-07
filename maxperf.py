@@ -1,3 +1,4 @@
+import os
 import sys
 import PIL
 from PyQt5 import QtWidgets, QtCore
@@ -19,7 +20,18 @@ torch.backends.cudnn.allow_tf32 = True
 
 mw = None
 batchSize = 10
-prompts = ['Evil space kitty', 'Cute dog in hat, H.R. Giger style', 'Horse wearing a tie', 'Cartoon pig', 'Donkey on Mars', 'Cute kitties baked in a cake', 'Boxing chickens on farm, Maxfield Parish style', 'Future spaceship', 'A city of the past', 'Jabba the Hut wearing jewelery']
+
+custom_prompts_path = "prompts.txt"
+if os.path.exists(custom_prompts_path):
+    with open(custom_prompts_path, "r") as file:
+        lines = file.readlines()
+    prompts = [line.strip() for line in lines]
+    
+else:
+    prompts = ['Evil space kitty', 'Cute dog in hat, H.R. Giger style', 'Horse wearing a tie', 'Cartoon pig', 'Donkey on Mars', 'Cute kitties baked in a cake', 'Boxing chickens on farm, Maxfield Parish style', 'Future spaceship', 'A city of the past', 'Jabba the Hut wearing jewelery']
+
+print(f"Using the following prompts:", *prompts, sep='\n')
+
 prompts_len = len(prompts)
 
 def dwencode(pipe, prompts, batchSize: int, nTokens: int):
