@@ -20,6 +20,7 @@ torch.backends.cudnn.allow_tf32 = True
 mw = None
 batchSize = 10
 prompts = ['Evil space kitty', 'Cute dog in hat, H.R. Giger style', 'Horse wearing a tie', 'Cartoon pig', 'Donkey on Mars', 'Cute kitties baked in a cake', 'Boxing chickens on farm, Maxfield Parish style', 'Future spaceship', 'A city of the past', 'Jabba the Hut wearing jewelery']
+prompts_len = len(prompts)
 
 def dwencode(pipe, prompts, batchSize: int, nTokens: int):
     tokenizer = pipe.tokenizer
@@ -244,14 +245,21 @@ def genit(mode, prompts, batchSize, nSteps):
     return images
 
 if __name__ == '__main__':
+    
+    
     if len(sys.argv) == 2:
         batchSize = int(sys.argv[1])
-        if batchSize > 10:
-            print('Batchsize must not be greater than 10.')
-        prompts = prompts[:batchSize]
+        
+        if batchSize > prompts_len:
+            prompts=prompts * (1 + batchSize // prompts_len)
+            print(prompts_len, prompts)
+
+
     else:
-        batchSize = 10
-        prompts = ['Evil space kitty', 'Cute dog in hat, H.R. Giger style', 'Horse wearing a tie', 'Cartoon pig', 'Donkey on Mars', 'Cute kitties baked in a cake', 'Boxing chickens on farm, Maxfield Parish style', 'Future spaceship', 'A city of the past', 'Jabba the Hut wearing jewelery']
+        batchSize = prompts_len
+    
+    prompts = prompts[:batchSize]
+    
     app = QApplication(sys.argv)
     mw = MainWindow()
     mw.show()
