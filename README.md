@@ -1,19 +1,17 @@
-# ArtSpew
+# ArtSpew - Version 0.1.0
 An infinite number of monkeys randomly throwing paint at a canvas
 
-## Explore the diversity of Stable Diffusion through random prompt embeddings.
-Using randomly generated token id's this app can generate a huge diverse set of images very rapidly.  I've created 1000 images in 34.6 seconds on a 4090.  That is not a typo.  4 step LCM, 512x512, batchsize=8, using torch.compile.  With 1024x1024 batchsize=2 sdxl you can get great images in under .46 seconds per image.  NOTE: This is old data.  Things are even faster now.
+## Explore the diversity of Stable Diffusion and generate ideas for art using rapid high volume random image generation.
+Whether asking for variations on a theme like "Space kitty cowboy" or just asking for 1000 totally random images, this is your tool.  With SD1.5 models you could get 1000 images in 45 seconds with an NVidia 4090.  We also fully support SDXL.  What will you discover in this universe?
+
+Also, as a pure demonstration of absurd performance I offer ***maxperf*** which can generate 149 images per seconds on a 4090.  How will this very new tech bring about the new reality of realtime videos?  Thing are going to get very interesting soon.
 
 Tongue in cheek:
 In ancient granite Wikipedia carvings dated near the end of August 2022 Stable Diffusion was inscribed and human artists were no more. They were replaced by AI Artists typing words, getting the spelling right 2 out of 3 times and usually finding the "Generate" button.  Now, eons later, we are at a point where AI Artists will soon be replaced.  The dawn of ArtSpew is at hand.  Harnessing the magic of a random number generator you can excrete 1000 random images very quickly.
 
-## Overview
-This repo has the command line program named artspew.py which can generate huge numbers of image for exploration purposes.  Also, including is maxperf.py, a GUI program to wow people with the lastest tech to push things as fast as 150 images per second on a 4090.  After installing ArtSpew look at README-maxperf.md to see how to run that demo.
-
 ## Installation
 
 ### Linux
-
 ```
 # Get the code
 git clone https://github.com/aifartist/ArtSpew
@@ -31,23 +29,28 @@ pip3 install -r requirements.txt
 
 ## How to spew art with no discernible talent.  :-)
 
-### As a CLI
-
 Try the following for a first run:
 ```
-python3 artspew.py --xl --p "crazy cat" -n 10
+python3 artspew.py --xl -p "Space cat cowboy" -c 10 -n 11
 ```
+This will generate 10 images.  Your theme is "Space cat cowboy".  The "-n 11" tells app to add 11 totally random tokens to your prompt to add variety and make the images more interesting.  By using LCM even 1024x1024 generations are much quicker than is typical for SDXL.  Look at the images in your **spew/** directory.  If you have a 4090 just do 100 the first time.
 
-This will generate 100 images of "crazy cat" with random tokens added to increase the diversity of the images. It should be super fast. Lose the "--xl" to use SD 1.5.
+Your next experiment is to get rid of the "-p" prompt and just generate totally random images.  Have patience and do 100.  You should get many interesting images.
+
+Now if you want fast but with reduced quality using the very old sd1.5 default model get rid of the '--xl' and generate at least 100 images with or without a prompt.  On my machine this took 12.45 seconds.  Advanced users will try the "compile" option that can be found with "--help" and perhaps create 100 images in 6 seconds.  Compile may not work on Windows without WSL(untested).  Another way to get even faster performance is to use "-b" to set the batchsize to generation multiple images in parallel.  On GPU's with small amounts of VRam if you run out of memory decrease the batchsize.
+
+NOTE: Unlike SDXL the base SD 1.5 model doesn't have great quality.  However, there are 1000's of fine tuned or merge SD1.5 models which are much better.  You probably have downloaded a few.  The "-m" option can be used to specify the path to your favorite local SD 1.5 model.  Using --xl but specifying a sd1.5 model with "-m" will likely destroy the entire universe.  Please avoid doing that.
 
 Use:  `python3 artspew.py --help`
 to get the full usage.
 
-The new images with appear in the directory named **spew/**.  Even at 4 steps there'll be some good ones.  The idea is to see the space of possibilities and generate ideas.  Set steps to 12 or 16 and you'll get better images.  Then perhaps set "-c" to 100 and look at the diversity of images you get.
+Where will your imagination take you?
+> Mutant kitty monsters with glowing eyes, H.R.Giger style
+remember to increase variety by using "-n" to add some random tokens to your prompt.
 
-Then try to pick a subject like "Mutant kitty monsters with glowing eyes, H.R.Giger style" and gen random versions of it.  THe command below is doing 10 inference steps and appending 5 random tokens to the prompt.
+# maxperf
+This is a GUI app which is crazy fast just to show how far we've come.  Don't complain about quality of something which came out days ago.  Read README-maxperf.md to instructions to run it.
 
-> python3 artspew.py --xl -p "Mutant kitty monsters with glowing eyes, H.R.Giger style" -b 2 -s 10
 
 ### As a python module
 
