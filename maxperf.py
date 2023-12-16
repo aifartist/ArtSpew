@@ -41,19 +41,17 @@ def dwencode(pipe, prompts, batchSize: int, nTokens: int):
 
     tii = text_inputs.input_ids
 
-    # Find the end mark which is deterimine the prompt len(pl)
-    # terms of user tokens
-    #pl = np.where(tii[0] == 49407)[0][0] - 1
-    pl = (tii[0] == torch.tensor(49407, device='cuda')).nonzero()[0][0].item() - 1
-
     if nTokens > 0:
-        # TODO: Efficiency
         for i in range(batchSize):
+            # Find the end mark which is deterimine the
+            # prompt len(pl) in terms of user tokens.
+            pl = (tii[i] == torch.tensor(49407, device='cuda')).nonzero()[0][0].item() - 1
             tii[i][1+pl:1+pl+nTokens] = randIIs[i]
             tii[i][1+pl+nTokens] = 49407
 
     if False:
         for bi in range(batchSize):
+            pl = (tii[i] == torch.tensor(49407, device='cuda')).nonzero()[0][0].item() - 1
             print(f"{mw.seqno:05d}-{bi:02d}: ", end='')
             for tid in tii[bi][1:1+pl+nTokens]:
                 print(f"{tokenizer.decode(tid)} ", end='')
@@ -70,7 +68,13 @@ def dwencode(pipe, prompts, batchSize: int, nTokens: int):
     return prompt_embeds
 
 
-pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sd-turbo", torch_dtype=torch.float16, variant="fp16")
+pipe = AutoPipelineForText2Image.from_pretrained(
+    "stabilityai/sd-turbo",
+    torch_dtype=torch.float16,
+    variant="fp16",
+    safety_checker=None,
+    requires_safety_checker=False
+)
 pipe.to("cuda")
 #pipe.unet.to(memory_format=torch.channels_last)
 
