@@ -61,9 +61,9 @@ def parse_arguments():
     parser.add_argument('-n', '--random-tokens', type=int, default=DEFAULT_N_RANDOM_TOKENS,
                         help='Number of random tokens added')
     parser.add_argument('--no-lcm', action='store_true',
-                        help='Use LCM')
+                        help='Do not use LCM')
     parser.add_argument('--no-tiny-vae', action='store_true',
-                        help='Use the tiny VAE')
+                        help='Do not use the tiny VAE')
     parser.add_argument('-g', '--guidance', type=float, default=DEFAULT_GUIDANCE,
                         help='Guidance value, -1 for auto')
     parser.add_argument('--torch-compile', action='store_true',
